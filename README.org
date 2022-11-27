@@ -1,0 +1,17 @@
+
+My solutions for the Advent of Code 2022 (yet to start), in Emacs LISP (or this is the plan. Let's see how it unfolds…)
+
+** How to install the code
+
+Just clone the repository: it doesn't require any setup at all.
+
+** What do you need
+
+- Emacs (obviously) with the following packages installed:
+  - buttercup
+  - the 'dash' and 's' emacs packages
+- make (optionally)
+
+** How to run the samples
+
+N/A (yet)
