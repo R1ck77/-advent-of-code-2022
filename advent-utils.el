@@ -230,9 +230,8 @@ The value is binded to 'it'"
 (defun advent/read-blocks-of-lines (day type)
   (advent/group-lines (advent/read-raw-problem-lines day type)))
 
-(defun advent/read-blocks-of-numbers (day type)
-  (--map (-map #'string-to-number it)
-         (advent/read-blocks-of-lines day type)))
+(defun advent/block-of-lines-to-numbers (line-blocks)
+  (--map (-map #'string-to-number it) line-blocks))
 
 (defun advent/bogus-gradient (start end f)
   "A getto gradient function that bisects through the domain"
