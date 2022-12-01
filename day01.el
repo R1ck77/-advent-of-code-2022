@@ -5,6 +5,6 @@
   (car (-sort #'> (--map (apply #'+ it) input))))
 
 (defun day01/part-2 (input)
-  12)
+  (apply #'+ (-take 3 (-sort #'> (--map (apply #'+ it) input)))))
 
 (provide 'day01)
