@@ -1,9 +1,6 @@
 (require 'dash)
 (require 'advent-utils)
 
-(defconst day03/all-lowercase (-map #'char-to-string (number-sequence 97 122)))
-(defconst day03/all-uppercase (-map #'char-to-string (number-sequence 65 90)))
-
 (defun day03/string-to-letters (string)
   (split-string string "" t))
 
