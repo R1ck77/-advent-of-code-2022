@@ -4,9 +4,11 @@
 (defconst day03/all-lowercase (-map #'char-to-string (number-sequence 97 122)))
 (defconst day03/all-uppercase (-map #'char-to-string (number-sequence 65 90)))
 
+(defun day03/string-to-letters (string)
+  (split-string string "" t))
+
 (defun day03/read-items (rucksack)
-  (let ((elements (--filter (> (length it) 0)
-                            (split-string rucksack ""))))
+  (let ((elements (day03/string-to-letters rucksack)))
     (-split-at (/ (length elements) 2) elements)))
 
 (defun day03/read-packing (packings)
@@ -30,7 +32,18 @@
 (defun day03/part-1 (lines)
   (apply #'+ (-map #'day03/score-error (day03/read-packing lines))))
 
+(defun day03/read-groups (packings)
+  (-partition 3 (-map #'day03/string-to-letters packings)))
+
+(defun day03/read-common (a-b-c)
+  (let* ((ref (advent/set-from (car a-b-c)))
+         (ref2 (advent/set-from (--filter (advent/get ref it) (elt a-b-c 1)))))
+    (car (--filter (advent/get ref2 it) (elt a-b-c 2)))))
+
 (defun day03/part-2 (lines)
-  (error "Not yet implemented"))
+  (apply #'+
+         (-map #'day03/score-letter
+               (-map #'day03/read-common
+                     (day03/read-groups lines)))))
 
 (provide 'day03)
