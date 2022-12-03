@@ -19,6 +19,15 @@
   (puthash key value table)
   table)
 
+(defun advent/set-from (items &optional value)
+  "Create a set of the items in the input list.
+
+If value is specified, it is used as a value for the table key,
+otherwise the key is duplicated in the value (which may come in handy)"
+  (let ((set (advent/table)))
+    (--each items (advent/put set it (or value it)))
+    set))
+
 (defun advent/cache (table key value)
   "Like advent/put, but returns the value instead of the table"
   (puthash key value table)
