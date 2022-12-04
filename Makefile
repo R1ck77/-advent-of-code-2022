@@ -8,3 +8,6 @@ last:
 
 single:
 	emacs -f package-initialize -batch -l run-utils.el  --eval "(run-test ${ARG})"
+
+copy-template:
+	emacs --script templates/copy-template.el ${ARG} templates
