@@ -19,17 +19,17 @@
      (t (list b a)))))
 
 (defun day04/is-subrange? (ranges)
-  (seq-let (a b) (day04/sort-ranges ranges)
-    (>= (cadr a) (cadr b))))
+  (seq-let (range-a range-b) (day04/sort-ranges ranges)
+    (>= (cadr range-a) (cadr range-b))))
 
 (defun day04/part-1 (lines)
   (length (-filter #'day04/is-subrange? (day04/read-problem lines))))
 
+(defun day04/is-overlapping? (ranges)
+  (seq-let (range-a range-b) (day04/sort-ranges ranges)
+    (<= (car range-b) (cadr range-a))))
+
 (defun day04/part-2 (lines)
-  (error "Not yet implemented"))
-
-(setq example (day04/read-problem (advent/read-problem-lines 4 :example)))
-(setq problem (day04/read-problem (advent/read-problem-lines 4 :problem)))
-
+  (length (-filter #'day04/is-overlapping? (day04/read-problem lines))))
 
 (provide 'day04)
