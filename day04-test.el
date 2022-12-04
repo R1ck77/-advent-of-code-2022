@@ -1,18 +1,18 @@
 (require 'day04)
 (require 'buttercup)
 
-(describe "Day X"
+(describe "--- Day 4: Camp Cleanup ---"
   (describe "part 1"
     (it "replicates the example"
-      (expect (day04/part-1 (advent/read-problem-lines X :example))
-              :to-be 42 ))
-    (xit "solves the problem"
-      (expect (day04/part-1 (advent/read-problem-lines X :problem))
-              :to-be 42)))
+      (expect (day04/part-1 (advent/read-problem-lines 4 :example))
+              :to-be 2))
+    (it "solves the problem"
+      (expect (day04/part-1 (advent/read-problem-lines 4 :problem))
+              :to-be 588)))
   (xdescribe "part 2"
     (it "replicates the example"
-      (expect (day04/part-2 (advent/read-problem-lines X :example))
+      (expect (day04/part-2 (advent/read-problem-lines 4 :example))
               :to-be 42))
     (xit "solves the problem"
-      (expect (day04/part-2 (advent/read-problem-lines X :problem))
+      (expect (day04/part-2 (advent/read-problem-lines 4 :problem))
               :to-be 42))))
