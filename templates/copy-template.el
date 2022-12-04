@@ -1,17 +1,20 @@
+;; -*- lexical-binding: t -*-
 
-
-;;; TODO/FIXME macro
 (defun template/-with-read-file (filename function)
-  (print (format "Reading '%s'" filename))
   (with-temp-buffer
-    (insert-file filename)
+    (insert-file-contents filename)
     (goto-char (point-min))
     (funcall function)
     (goto-char (point-min))
     (buffer-string)))
 
+(defmacro template/with-read-file (filename &rest forms)
+  (declare (indent 1))
+  `(template/-with-read-file ,filename
+                             (lambda ()
+                               ,@forms)))
+
 (defun template/-replace-tokens (day)
-  (print (format "Replacing the tokens for %d in the current buffer" day))
   (let ((day-1d (number-to-string day))
         (day-2d (format "%.2d" day)))
     ;;; TODO/FIXME look what the heck I'm doing here (copy-paste)
@@ -22,6 +25,7 @@
     (while (search-forward "X" nil t)
       (replace-match day-1d t t))))
 
+;;; TODO/FIXME horrid path composition x 4
 (defun template/get-solution-template (templates)
   (format "%s/dayXX.el-template" templates))
 
@@ -29,14 +33,13 @@
   (format "day%.2d.el" day))
 
 (defun template/copy-solution (day templates)
-  (print (format "* Copying the solution for day %s " day))
-  ;;; TODO/FIXME horrid path composition
-  (template/-with-read-file (template/get-solution-template templates)
-                            (lambda ()
-                              (template/-replace-tokens day)
-                              (append-to-file (point-min)
-                                              (point-max)
-                                              (template/get-solution-file day)))))
+  (template/with-read-file (template/get-solution-template templates)
+    (template/-replace-tokens day)
+    (let ((out-name (template/get-solution-file day)))
+      (delete-file out-name)
+      (append-to-file (point-min)
+                      (point-max)
+                      (template/get-solution-file day)))))
 
 (defun template/get-test-template (templates)
   (format "%s/dayXX-test.el-template" templates))
@@ -45,14 +48,13 @@
   (format "day%.2d-test.el" day))
 
 (defun template/copy-test (day templates)
-  (print (format "* Copying the test for day %s " day))
-  ;;; TODO/FIXME horrid path composition
-  (template/-with-read-file (template/get-test-template templates)
-                            (lambda ()
-                              (template/-replace-tokens day)
-                              (append-to-file (point-min)
-                                              (point-max)
-                                              (template/get-test-file day)))))
+  (template/with-read-file (template/get-test-template templates)
+    (template/-replace-tokens day)
+    (let ((out-name (template/get-test-file day)))
+      (delete-file out-name)
+      (append-to-file (point-min)
+                      (point-max)
+                      out-name))))
 
 
 (defun template/copy-templates ()
