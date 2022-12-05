@@ -36,17 +36,43 @@
   (let* ((n (day05/get-stacks crates))
          (stacks (-repeat n '())))
     (assert (< n 10) "This program doesn't parse more than 9 stacks of crates correctly")
-    (--reduce-from  (day05/-read-crates-line acc n it)
-                    (-repeat n '())
-                    (-drop-last 1 crates))))
+    (-map #'nreverse
+           (--reduce-from  (day05/-read-crates-line acc n it)
+                           (-repeat n '())
+                           (-drop-last 1 crates)))))
 
 (defun day05/read-problem (lines)
   (seq-let (crates moves) (--split-when (equal "" it) lines)
     (list (day05/parse-crates crates)
           (day05/parse-moves moves))))
 
+(defun day05/update-crates (crates move)
+  (assert (/= (elt move 1) (elt move 2)))
+  (seq-let (qt from to) move
+    (let ((moved (-take qt (elt crates from))))
+      (--map-indexed (cond
+                      ((= it-index from) (-drop qt (elt crates from)))
+                      ((= it-index to) (-concat (reverse moved) (elt crates to)))
+                      (t it))
+                     crates))))
+
+(defun day05/move (state)
+  (seq-let (crates moves) state
+    (list (day05/update-crates crates (car moves))
+          (rest moves))))
+
+(defun day05/predict-future-state (state)
+  (while (cadr state)
+    (setq state (day05/move state)))
+  (car state))
+
+(defun day05/get-last-row (crates)
+  (apply #'concat (-map #'car crates)))
+
 (defun day05/part-1 (lines)
-  (error "Not yet implemented"))
+  (day05/get-last-row
+   (day05/predict-future-state
+    (day05/read-problem lines))))
 
 (defun day05/part-2 (lines)
   (error "Not yet implemented"))
