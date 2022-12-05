@@ -120,8 +120,8 @@ It binds:
     (insert-file-contents (advent/compute-input-name day type part))
     (buffer-substring-no-properties (point-min) (point-max))))
 
-(defun advent/read-problem-lines (day type &optional part)
-  (split-string (advent/read-problem-text day type part) "\n" t))
+(defun advent/read-problem-lines (day type &optional part keep-empty)
+  (split-string (advent/read-problem-text day type part) "\n" (not keep-empty)))
 
 (defun advent/read--grid-line (line conversion-f)
   (apply #'vector (-map conversion-f (split-string line "" t))))
