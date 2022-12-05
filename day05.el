@@ -19,14 +19,26 @@
   (string-to-number (car (last (s-split " " (car (reverse crates)) t)))))
 
 (defun day05/get-crate-at-pos (line pos)
-  (assert (and (> pos 0) (< pos 10)) "Invalid pos")
-  (char-to-string (elt line (+ 1 (* (1- pos) 4)) )))
+  (assert (and (>= pos 0) (< pos 9)) "Invalid pos")
+  (let ((letter (char-to-string (elt line (+ 1 (* pos 4)) ))))
+    (unless (string= letter " ") letter)))
+
+(defun day05/-read-crates-line (crates n line)
+  (let ((new-crates ()))
+    (--dotimes n
+      (let ((stack (elt crates it)))
+        (if-let ((crate (day05/get-crate-at-pos line it)))
+            (setq stack (cons crate stack)))
+        (setq new-crates (cons stack new-crates))))
+    (nreverse new-crates)))
 
 (defun day05/parse-crates (crates)
-  (let ((n (day05/get-stacks crates)))
+  (let* ((n (day05/get-stacks crates))
+         (stacks (-repeat n '())))
     (assert (< n 10) "This program doesn't parse more than 9 stacks of crates correctly")
-    (-drop-last 1 crates))
-)
+    (--reduce-from  (day05/-read-crates-line acc n it)
+                    (-repeat n '())
+                    (-drop-last 1 crates))))
 
 (defun day05/read-problem (lines)
   (seq-let (crates moves) (--split-when (equal "" it) lines)
