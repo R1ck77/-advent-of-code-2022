@@ -46,24 +46,24 @@
     (list (day05/parse-crates crates)
           (day05/parse-moves moves))))
 
-(defun day05/update-crates (crates move)
+(defun day05/update-crates (crates move reverse)
   (assert (/= (elt move 1) (elt move 2)))
   (seq-let (qt from to) move
     (let ((moved (-take qt (elt crates from))))
       (--map-indexed (cond
                       ((= it-index from) (-drop qt (elt crates from)))
-                      ((= it-index to) (-concat (reverse moved) (elt crates to)))
+                      ((= it-index to) (-concat (if reverse (reverse moved) moved) (elt crates to)))
                       (t it))
                      crates))))
 
-(defun day05/move (state)
+(defun day05/move (state reverse)
   (seq-let (crates moves) state
-    (list (day05/update-crates crates (car moves))
+    (list (day05/update-crates crates (car moves) reverse)
           (rest moves))))
 
-(defun day05/predict-future-state (state)
+(defun day05/predict-future-state (state &optional reverse)
   (while (cadr state)
-    (setq state (day05/move state)))
+    (setq state (day05/move state reverse)))
   (car state))
 
 (defun day05/get-last-row (crates)
@@ -71,10 +71,10 @@
 
 (defun day05/part-1 (lines)
   (day05/get-last-row
-   (day05/predict-future-state
-    (day05/read-problem lines))))
+   (day05/predict-future-state (day05/read-problem lines) t)))
 
 (defun day05/part-2 (lines)
-  (error "Not yet implemented"))
+  (day05/get-last-row
+   (day05/predict-future-state (day05/read-problem lines))))
 
 (provide 'day05)
