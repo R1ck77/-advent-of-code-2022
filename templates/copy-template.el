@@ -56,11 +56,20 @@
                       (point-max)
                       out-name))))
 
+(defun template/touch-file (filename)
+  ;;; TODO/FIXME there is probably a less awkward way to do it
+  (append-to-file (point-min) (point-min) filename))
+
+(defun template/create-empty-data-files (day)
+  (template/touch-file (format "data/day%d-example.txt" day))
+  (template/touch-file (format "data/day%d-problem.txt" day)))
+
 
 (defun template/copy-templates ()
   (let ((day (string-to-number (elt argv 0)))
         (template-folder (elt argv 1)))
     (template/copy-solution day template-folder)
-    (template/copy-test day template-folder)))
+    (template/copy-test day template-folder)
+    (template/create-empty-data-files day)))
 
 (template/copy-templates)
