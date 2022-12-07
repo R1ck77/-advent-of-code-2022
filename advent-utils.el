@@ -6,6 +6,10 @@
   "Important (and missed…) enough to warrant a global-like name"
   nil)
 
+(defmacro advent/assert (condition &optional message)
+  "Not present for some reason"
+  `(unless ,condition (error (or ,message "Assertion failed"))))
+
 (defun advent/v->l (vector)
   (append vector '()))
 
