@@ -13,7 +13,6 @@
   (assert (hash-table-p fs))
   (if-let ((path-dir (advent/get fs path)))
       path-dir    
-    (print (format "*** missing path '%s' (will create)" path))
     (day07/add-dir fs path) ;; TODO/FIXME horrid
     (advent/get fs path)))
 
@@ -122,6 +121,12 @@
              (day07/all-sizes (day07/fill-filesystem lines)))))
 
 (defun day07/part-2 (lines)
-  (error "Not yet implemented"))
+  (let* ((fs (day07/fill-filesystem lines))
+         (used-space (day07/dir-size fs))
+         (free-space (- 70000000 used-space))
+         (required-space (- 30000000 free-space)))
+    (car
+     (-sort #'<
+            (--filter (>= it required-space) (day07/all-sizes fs))))))
 
 (provide 'day07)
