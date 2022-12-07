@@ -2,6 +2,9 @@
 (require 's)
 (require 'advent-utils)
 
+(defconst day07/PARENT "..")
+(defconst day07/ROOT "/")
+
 (defvar example (advent/read-problem-lines 7 :example))
 (defvar problem (advent/read-problem-lines 7 :problem))
 
@@ -17,26 +20,26 @@
 
 (defun day07/root-dir (fs)
   (advent/assert (hash-table-p fs))  
-  (if (advent/get fs "..")
+  (if (advent/get fs day07/PARENT)
       (day07/root-dir (day07/up-dir fs))
     fs))
 
 (defun day07/up-dir (fs)
   (advent/assert (hash-table-p fs))  
-  (let ((up-dir (advent/get fs "..")))
+  (let ((up-dir (advent/get fs day07/PARENT)))
     (unless up-dir (error "Missing parent"))
     up-dir))
 
 (defun day07/change-dir (fs path)
   (advent/assert (hash-table-p fs))  
-  (cond ((string= path "..") (day07/up-dir fs))
-        ((string= path "/") (day07/root-dir fs))
+  (cond ((string= path day07/PARENT) (day07/up-dir fs))
+        ((string= path day07/ROOT) (day07/root-dir fs))
         (t (day07/down-dir fs path))))
 
 (defun day07/-new-dir (parent)
   (advent/assert (hash-table-p parent))
   (let ((new-dir (advent/table)))
-    (advent/put new-dir ".." parent)
+    (advent/put new-dir day07/PARENT parent)
     new-dir))
 
 (defun day07/add-dir (fs name)
@@ -91,7 +94,7 @@
   (apply #'+
          (advent/-map-hash fs
            (cond
-            ((string= it-key "..") 0)
+            ((string= it-key day07/PARENT) 0)
             ((numberp it-value) it-value)
             ((hash-table-p it-value) (day07/dir-size it-value))
             (t (error "Unexpected condition"))))))
@@ -99,7 +102,7 @@
 (defun day07/all-folders-but-root (fs)
   (advent/assert (hash-table-p fs))  
   (--mapcat (list (list (car it) (day07/all-folders-but-root (cadr it))))
-         (--filter (and (not (string= (car it) ".."))
+         (--filter (and (not (string= (car it) day07/PARENT))
                         (not (numberp (cadr it))))
                    (advent/-map-hash fs (list it-key it-value)))))
 
@@ -110,7 +113,7 @@
 (defun day07/all-sizes (fs &optional sizes)
   (setq sizes (cons (day07/dir-size fs) sizes))
   (advent/-each-hash fs
-    (when (and (not (string= ".." it-key))
+    (when (and (not (string= day07/PARENT it-key))
                (day07/is-dir? fs it-key))
         (setq sizes (day07/all-sizes it-value sizes))))
   sizes)
