@@ -36,6 +36,7 @@
         (t (day07/down-dir fs path))))
 
 (defun day07/-new-dir (parent)
+  (assert (hash-table-p parent))
   (let ((new-dir (advent/table)))
     (advent/put new-dir ".." parent)
     new-dir))
@@ -44,6 +45,7 @@
   `(unless ,condition (error (or ,message "Assertion failed"))))
 
 (defun day07/add-dir (fs name)
+  (assert (hash-table-p fs))
   (assert (hash-table-p fs))
   (let ((dir (advent/get fs name)))
     (if (not dir)
@@ -67,7 +69,7 @@
   fs)
 
 (defun day07/slurp-data (fs term-output)
-  (assert (hash-table-p fs))  
+  (assert (hash-table-p fs))
   (if-let ((command (day07/is-command? term-output)))
       (if (string= (car command) "cd") ;; "ls" is ignored
           (day07/change-dir fs (cadr command))
@@ -81,10 +83,12 @@
     fs))
 
 (defun day07/print-dir (fs)
+  (assert (hash-table-p fs))  
   (advent/-each-hash fs
     (print (format "%15s %s" it-key it-value))))
 
 (defun day07/dir-size (fs)
+  (assert (hash-table-p fs))  
   (apply #'+
          (advent/-map-hash fs
            (cond
@@ -93,21 +97,29 @@
             ((hash-table-p it-value) (day07/dir-size it-value))
             (t (error "Unexpected condition"))))))
 
-(defun day07/all-folders (fs)
-  (append (list fs)
-          (--filter (and (not (string= (car it) ".."))
-                         (not (numberp (cadr it))))
-                    (advent/-map-hash fs (list it-key it-value))))
-  )
+(defun day07/all-folders-but-root (fs)
+  (assert (hash-table-p fs))  
+  (--mapcat (list (list (car it) (day07/all-folders-but-root (cadr it))))
+         (--filter (and (not (string= (car it) ".."))
+                        (not (numberp (cadr it))))
+                   (advent/-map-hash fs (list it-key it-value)))))
 
-(defun day07/recurse-dirs (fs filter-function)
-  (append (list (funcall filter-function fs))
-          (--filter (and (not (string= (car it) ".."))
-                         (not (numberp (cadr it))))
-                    (advent/-map-hash fs (list it-key it-value)))))
+(defun day07/is-dir? (fs name)
+  (assert (hash-table-p fs))
+  (hash-table-p (advent/get fs name)))
 
-(defun day07/part-1 (lines)
-  (day07/fill-filesystem lines))
+(defun day07/all-sizes (fs &optional sizes)
+  (setq sizes (cons (day07/dir-size fs) sizes))
+  (advent/-each-hash fs
+    (when (and (not (string= ".." it-key))
+               (day07/is-dir? fs it-key))
+        (setq sizes (day07/all-sizes it-value sizes))))
+  sizes)
+
+(defun day07/part-1 (lines)  
+  (apply #'+
+         (--filter (<= it 100000)
+             (day07/all-sizes (day07/fill-filesystem lines)))))
 
 (defun day07/part-2 (lines)
   (error "Not yet implemented"))
