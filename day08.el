@@ -1,10 +1,68 @@
 (require 'dash)
 (require 'advent-utils)
 
-(defun day08/part-1 (lines)
-  (error "Not yet implemented"))
+(defvar example (advent/read-grid 8 :example))
+(defvar problem (advent/read-grid 8 :problem))
 
-(defun day08/part-2 (lines)
+(defun day08/rotate-coordinate (n x-y)
+  (cons (- n (cdr x-y) 1) (car x-y)))
+
+(defun day08/rotate-grid (grid)
+  (let ((n (length grid))
+        (new-grid (advent/copy-grid grid)))
+    (loop for x from 0 below n do
+          (loop for y from  0 below n do
+                (advent/grid-set! new-grid
+                                  (day08/rotate-coordinate n (cons x y))
+                                  (advent/grid-get grid (cons x y)))))
+    new-grid))
+
+(defun day08/visibile-trees-in-row (row)
+  (cadr
+   (-reduce-from (lambda (max&list index-tree)
+                   (seq-let (max visibiles) max&list
+                     (let ((index (car index-tree))
+                           (height (cdr index-tree)))
+                       (if (> height max)
+                           (list height (cons index visibiles))
+                         max&list))))
+                 (list -1 nil)
+                 (--map-indexed (cons it-index it)
+                                (append row nil)))))
+
+(defun day08/visibile-tree-coordinates-for-row (grid row)
+  (--map (cons row it) (day08/visibile-trees-in-row (aref grid row))))
+
+(defun day08/all-visibile-coordinates (grid &optional visibile)
+  (let ((n (length grid)))
+    (loop for i from 0 below n do
+          (setq visibile (append (day08/visibile-tree-coordinates-for-row grid i) visibile))))
+  (list grid visibile))
+
+(defun day08/rotate-problem (grid visibile)
+  (list (day08/rotate-grid grid)
+        (--map (day08/rotate-coordinate (length grid) it) visibile)))
+
+(defun day08/raw-get-all-visibile-coordinates (grid)
+  (apply #'day08/rotate-problem
+         (apply #'day08/all-visibile-coordinates
+          (apply #'day08/rotate-problem
+                 (apply #'day08/all-visibile-coordinates
+                        (apply #'day08/rotate-problem
+                               (apply #'day08/all-visibile-coordinates
+                                      (apply #'day08/rotate-problem
+                                             (day08/all-visibile-coordinates grid)))))))))
+
+(defun day08/get-all-visibile-coordinates (grid)
+  (-uniq (--sort  (or (> (car it) (car other))
+                      (and (= (car it) (car other))
+                           (>= (cdr it) (cdr other))))
+                  (cadr (day08/raw-get-all-visibile-coordinates grid)))))
+
+(defun day08/part-1 (grid)
+  (length (day08/get-all-visibile-coordinates grid)))
+
+(defun day08/part-2 (grid)
   (error "Not yet implemented"))
 
 (provide 'day08)

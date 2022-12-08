@@ -2,6 +2,10 @@
 (require 'cl)
 (require 'dash)
 
+;; TODO/FIXME do this
+;;;(defmacro advent/cons-let (args sequence &rest body)
+;;;  )
+
 (defmacro comment (&rest x)
   "Important (and missed…) enough to warrant a global-like name"
   nil)
