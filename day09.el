@@ -44,9 +44,17 @@
         tail
       (day09/add-correction tail (day09/compute-correction displacement)))))
 
+(defun day09/move-tail-segment (moved-tails current-tail)
+  (let* ((current-head (car moved-tails))         
+         (new-tail (day09/move-tail current-head current-tail)))
+    (cons new-tail moved-tails)))
+
 (defun day09/move-tails (head tails)
-  (assert (= (length tails) 1))
-  (list (day09/move-tail head (car tails))))
+  (let ((raw-result (-reduce-from #'day09/move-tail-segment
+                                  (list head)
+                                  tails)))
+    ;;; the function should be different all along
+    (rest (reverse raw-result))))
 
 (defun day09/move-head (move head)
   (case move
@@ -62,7 +70,6 @@
     (list new-head new-tails)))
 
 (defun day09/valid-state? (head tails)
-  (assert (= (length tails) 1))
   (let ((displacement (day09/compute-displacement head (car tails))))
     (and (< (abs(car displacement)) 2)
          (< (abs (cdr displacement)) 2))))
@@ -74,34 +81,35 @@
     (let* ((new-head (car head-tails))
            (new-tails (cadr head-tails))
            (new-position (cons new-head new-tails))
-           (new-positions (cons new-position (plist-get state :positions))))
+           (old-positions (plist-get state :positions))
+           (new-positions (cons new-position old-positions)))
       (advent/assert (apply #'day09/valid-state? head-tails) (format "I found myself in a strange predicament (%s after %s from h%s t%s)" head-tails move head tails))
       (list :head new-head
             :tails new-tails
             :positions new-positions))))
 
-(defun day09/run-moves (moves)
-  (plist-get (-reduce-from #'day09/do-step
-                 (list :head '(0 . 0)
-                       :tails '((0 . 0))
-                       :positions '(((0 . 0) (0 . 0))))
-                 moves)
-             :positions))
+(defun day09/run-moves (moves tails)
+  (let ((positions (cons '(0 . 0) tails)))
+   (plist-get (-reduce-from #'day09/do-step
+                            (list :head '(0 . 0)
+                                  :tails tails
+                                  :positions (list positions))
+                            moves)
+              :positions)))
 
 (defun day09/compute-unique-tail-positions (acc)
-  (-uniq (-map #'cadr acc)))
+  (-uniq (-map #'car (-map #'last acc))))
 
 (defun day09/part-1 (lines)
   (length
    (day09/compute-unique-tail-positions
-    (day09/run-moves
-     (day09/read-problem lines)))))
+    (day09/run-moves (day09/read-problem lines)
+                     (-repeat 1 '(0 . 0))))))
 
 (defun day09/part-2 (lines)
   (length
    (day09/compute-unique-tail-positions
-    (day09/run-moves
-     (day09/read-problem lines))))  
-  (error "Not yet implemented"))
+    (day09/run-moves (day09/read-problem lines)
+                     (-repeat 9 '(0 . 0))))))
 
 (provide 'day09)
