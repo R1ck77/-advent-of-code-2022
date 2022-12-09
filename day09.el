@@ -21,7 +21,7 @@
   (cons (funcall f (car head) (car tail))
         (funcall f (cdr head) (cdr tail))))
 
-(defun day09/compute-displacement (head tail )
+(defun day09/compute-displacement (head tail)
   (day09/binary-op head tail #'-))
 
 (defun day09/compute-coordinate-move (x)
@@ -30,7 +30,6 @@
    ((< x 0) -1)
    ((= x 0) 0)))
 
-;;6521 too low
 (defun day09/compute-correction (displacement)
   (cons (day09/compute-coordinate-move (car displacement))
         (day09/compute-coordinate-move (cdr displacement))))
@@ -45,6 +44,10 @@
         tail
       (day09/add-correction tail (day09/compute-correction displacement)))))
 
+(defun day09/move-tails (head tails)
+  (assert (= (length tails) 1))
+  (list (day09/move-tail head (car tails))))
+
 (defun day09/move-head (move head)
   (case move
     (:right (cons (1+ (car head)) (cdr head)))
@@ -52,31 +55,36 @@
     (:up (cons (car head) (1+ (cdr head))))
     (:down (cons (car head) (1- (cdr head))))))
 
-(defun day09/evolve-coordinates (move head tail)
+(defun day09/evolve-coordinates (move head tails)
   (let* ((new-head (day09/move-head move head))
-        (new-tail (day09/move-tail new-head tail)))
+        (new-tails (day09/move-tails new-head tails)))
     ;(print (format "%s from H%s T%s to H%s T%s" move head tail new-head new-tail))
-    (list new-head new-tail)))
+    (list new-head new-tails)))
 
-(defun day09/valid-state? (head tail)
-  (let ((displacement (day09/compute-displacement head tail)))
+(defun day09/valid-state? (head tails)
+  (assert (= (length tails) 1))
+  (let ((displacement (day09/compute-displacement head (car tails))))
     (and (< (abs(car displacement)) 2)
          (< (abs (cdr displacement)) 2))))
 
 (defun day09/do-step (state move)
   (let* ((head (plist-get state :head))
-         (tail (plist-get state :tail))
-         (new-coordinates (day09/evolve-coordinates move head tail)))
-    (advent/assert (apply #'day09/valid-state? new-coordinates) (format "I found myself in a strange predicament (%s after %s from h%s t%s)" new-coordinates move head tail))
-    (list :head (car new-coordinates)
-          :tail (cadr new-coordinates)
-          :positions (cons new-coordinates (plist-get state :positions)))))
+         (tails (plist-get state :tails))
+         (head-tails (day09/evolve-coordinates move head tails)))
+    (let* ((new-head (car head-tails))
+           (new-tails (cadr head-tails))
+           (new-position (cons new-head new-tails))
+           (new-positions (cons new-position (plist-get state :positions))))
+      (advent/assert (apply #'day09/valid-state? head-tails) (format "I found myself in a strange predicament (%s after %s from h%s t%s)" head-tails move head tails))
+      (list :head new-head
+            :tails new-tails
+            :positions new-positions))))
 
 (defun day09/run-moves (moves)
   (plist-get (-reduce-from #'day09/do-step
                  (list :head '(0 . 0)
-                       :tail '(0 . 0)
-                       :positions '('(0 . 0) '(0 . 0)))
+                       :tails '((0 . 0))
+                       :positions '(((0 . 0) (0 . 0))))
                  moves)
              :positions))
 
@@ -90,6 +98,10 @@
      (day09/read-problem lines)))))
 
 (defun day09/part-2 (lines)
+  (length
+   (day09/compute-unique-tail-positions
+    (day09/run-moves
+     (day09/read-problem lines))))  
   (error "Not yet implemented"))
 
 (provide 'day09)
