@@ -1,9 +1,6 @@
 (require 'dash)
 (require 'advent-utils)
 
-(defvar example (advent/read-problem-lines 9 :example))
-(defvar problem (advent/read-problem-lines 9 :problem))
-
 (defconst day09/string-to-direction '(("R" . :right)
                                       ("L" . :left)
                                       ("U" . :up)
@@ -49,13 +46,6 @@
          (new-tail (day09/move-tail current-head current-tail)))
     (cons new-tail moved-tails)))
 
-(defun day09/move-tails (head tails)
-  (let ((raw-result (-reduce-from #'day09/move-tail-segment
-                                  (list head)
-                                  tails)))
-    ;;; the function should be different all along
-    (rest (reverse raw-result))))
-
 (defun day09/move-head (move head)
   (case move
     (:right (cons (1+ (car head)) (cdr head)))
@@ -63,39 +53,28 @@
     (:up (cons (car head) (1+ (cdr head))))
     (:down (cons (car head) (1- (cdr head))))))
 
-(defun day09/evolve-coordinates (move head tails)
-  (let* ((new-head (day09/move-head move head))
-        (new-tails (day09/move-tails new-head tails)))
-    ;(print (format "%s from H%s T%s to H%s T%s" move head tail new-head new-tail))
-    (list new-head new-tails)))
+(defun day09/move-tails (rope)
+  (let ((raw-result (-reduce-from #'day09/move-tail-segment
+                                  (list (car rope))
+                                  (rest rope))))
+    (reverse raw-result)))
 
-(defun day09/valid-state? (head tails)
-  (let ((displacement (day09/compute-displacement head (car tails))))
-    (and (< (abs(car displacement)) 2)
-         (< (abs (cdr displacement)) 2))))
+(defun day09/evolve-coordinates (move rope)
+  (day09/move-tails (cons (day09/move-head move (car rope))
+                          (rest rope))))
 
 (defun day09/do-step (state move)
-  (let* ((head (plist-get state :head))
-         (tails (plist-get state :tails))
-         (head-tails (day09/evolve-coordinates move head tails)))
-    (let* ((new-head (car head-tails))
-           (new-tails (cadr head-tails))
-           (new-position (cons new-head new-tails))
-           (old-positions (plist-get state :positions))
-           (new-positions (cons new-position old-positions)))
-      (advent/assert (apply #'day09/valid-state? head-tails) (format "I found myself in a strange predicament (%s after %s from h%s t%s)" head-tails move head tails))
-      (list :head new-head
-            :tails new-tails
-            :positions new-positions))))
+  (let* ((rope (plist-get state :rope))
+         (new-rope (day09/evolve-coordinates move rope)))
+    (list :rope new-rope
+          :positions (cons new-rope (plist-get state :positions)))))
 
-(defun day09/run-moves (moves tails)
-  (let ((positions (cons '(0 . 0) tails)))
-   (plist-get (-reduce-from #'day09/do-step
-                            (list :head '(0 . 0)
-                                  :tails tails
-                                  :positions (list positions))
-                            moves)
-              :positions)))
+(defun day09/run-moves (moves rope)
+  (plist-get (-reduce-from #'day09/do-step
+                           (list :rope rope
+                                 :positions (list rope))
+                           moves)
+             :positions))
 
 (defun day09/compute-unique-tail-positions (acc)
   (-uniq (-map #'car (-map #'last acc))))
@@ -104,12 +83,12 @@
   (length
    (day09/compute-unique-tail-positions
     (day09/run-moves (day09/read-problem lines)
-                     (-repeat 1 '(0 . 0))))))
+                     (-repeat 2 '(0 . 0))))))
 
 (defun day09/part-2 (lines)
   (length
    (day09/compute-unique-tail-positions
     (day09/run-moves (day09/read-problem lines)
-                     (-repeat 9 '(0 . 0))))))
+                     (-repeat 10 '(0 . 0))))))
 
 (provide 'day09)
