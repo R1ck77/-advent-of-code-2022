@@ -69,3 +69,5 @@ Keep in mind that, in order to load the el files, you need to have the =load-pat
 (setq load-path (cons "." load-path))
 #+end_src
 
+Also, while I expect my code to work for your inputs, /I can't be 100% certain/ that it will: maybe your input has quirks that my code wasn't designed for, or maybe my code worked out the example and my problem out of sheer luck (hopefully not…).
+
