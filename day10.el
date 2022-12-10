@@ -1,9 +1,6 @@
 (require 'dash)
 (require 'advent-utils)
 
-(defvar example (advent/read-problem-lines 10 :example))
-(defvar problem (advent/read-problem-lines 10 :problem))
-
 (defconst day10/interesting-checks '(20 60 100 140 180 220))
 
 (defun day10/read-line (line)
@@ -47,21 +44,18 @@
      (day10/convert-addx-to-plain-add
       (day10/read-instructions lines))))))
 
-(defun day10/value-to-pixels (x)
+(defun day10/value-to-sprite-pixels (x)
   (list (1- x) x (1+ x)))
 
-(defun day10/get-coordinates (line-1 x-list)
-  (--map (cons (1+ line-1) it) x-list ))
-
 (defun day10/get-crt-cycles ()
-  (-mapcat #'identity (-map-indexed #'day10/get-coordinates (-repeat 6 (number-sequence 0 39)))))
+  (-mapcat #'identity (-repeat 6 (number-sequence 0 39))))
 
 (defun day10/to-sprite-pixels (values)
-  (-take 240 (-map #'day10/value-to-pixels values)))
+  (-take 240 (-map #'day10/value-to-sprite-pixels values)))
 
 (defun day10/compute-crt-value (crt-sprite)
   (seq-let (crt sprite) crt-sprite
-    (if (memq (cdr crt) sprite) "#" ".")))
+    (if (memq crt sprite) "#" ".")))
 
 (defun day10/compute-crt-values (sprites)
   (-map #'day10/compute-crt-value
