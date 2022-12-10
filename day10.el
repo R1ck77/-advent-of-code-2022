@@ -3,7 +3,6 @@
 
 (defvar example (advent/read-problem-lines 10 :example))
 (defvar problem (advent/read-problem-lines 10 :problem))
-(defvar tiny (list "noop" "addx 3" "addx -5"))
 
 (defconst day10/interesting-checks '(20 60 100 140 180 220))
 
@@ -48,7 +47,37 @@
      (day10/convert-addx-to-plain-add
       (day10/read-instructions lines))))))
 
+(defun day10/value-to-pixels (x)
+  (list (1- x) x (1+ x)))
+
+(defun day10/get-coordinates (line-1 x-list)
+  (--map (cons (1+ line-1) it) x-list ))
+
+(defun day10/get-crt-cycles ()
+  (-mapcat #'identity (-map-indexed #'day10/get-coordinates (-repeat 6 (number-sequence 0 39)))))
+
+(defun day10/to-sprite-pixels (values)
+  (-take 240 (-map #'day10/value-to-pixels values)))
+
+(defun day10/compute-crt-value (crt-sprite)
+  (seq-let (crt sprite) crt-sprite
+    (if (memq (cdr crt) sprite) "#" ".")))
+
+(defun day10/compute-crt-values (sprites)
+  (-map #'day10/compute-crt-value
+        (-zip-with #'list (day10/get-crt-cycles) sprites)))
+
+(defun day10/display (points)
+  (apply #'concat (--map (concat it "\n")
+                         (--map (apply #'concat it)
+                                (-partition 40 points)))))
+
 (defun day10/part-2 (lines)
-  (error "Not yet implemented"))
+  (day10/display
+   (day10/compute-crt-values
+    (day10/to-sprite-pixels
+     (day10/compute-evolution
+      (day10/convert-addx-to-plain-add
+       (day10/read-instructions lines)))))))
 
 (provide 'day10)
