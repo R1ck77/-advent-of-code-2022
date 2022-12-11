@@ -8,19 +8,20 @@
 (setq e (eval (read example)))
 (setq p (eval (read problem)))
 
-(defun day11/extract-monkeys (monkey-items)
+(defun day11/extract-monkeys (monkey-items post-process-f)
   (let ((operation (plist-get monkey-items :operation))
-        (test (plist-get monkey-items :test)))
+        (test (plist-get monkey-items :test))
+        (f post-process-f))
    (lambda (old)
-     (let ((new (/ (funcall operation old) 3)))
+     (let ((new (funcall f (funcall operation old))))
        (list new (funcall test new))))))
 
 (defun day11/extract-items (monkey-items)
   ;(apply #'vector (plist-get monkey-items :items))
   (plist-get monkey-items :items))
 
-(defun day11/separate-data-from-functions (monkeys-items)
-  (list (-map #'day11/extract-monkeys monkeys-items)
+(defun day11/separate-data-from-functions (monkeys-items post-process-f)
+  (list (--map (day11/extract-monkeys it post-process-f) monkeys-items)
         (-map #'day11/extract-items monkeys-items)))
 
 (defun day11/replace-element (a-list index new-value)
@@ -65,7 +66,8 @@
 
 (defun day11/get-counter-for-rounds (monkeys items index)
   (let ((counter))
-   (--dotimes index
+    (--dotimes index
+      (print counter)
      (seq-let (_ new-items updated-counter) (day11/do-round monkeys items counter)
        (setq items new-items)
        (setq counter updated-counter)) ;; TODO/FIXME geez
@@ -78,10 +80,12 @@
 
 (defun day11/part-1 (text)
   (let ((monkeys-items (eval (read text))))
-    (seq-let (monkeys items) (day11/separate-data-from-functions monkeys-items)
+    (seq-let (monkeys items) (day11/separate-data-from-functions monkeys-items (lambda (x) (/ x 3)))
         (day11/compute-monkey-business (day11/get-counter-for-rounds monkeys items 20)))))
 
 (defun day11/part-2 (text)
-  (error "Not yet implemented"))
+    (let ((monkeys-items (eval (read text))))
+    (seq-let (monkeys items) (day11/separate-data-from-functions monkeys-items #'identity)
+        (day11/compute-monkey-business (day11/get-counter-for-rounds monkeys items 10000)))))
 
 (provide 'day11)
