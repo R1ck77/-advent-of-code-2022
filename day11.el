@@ -2,8 +2,8 @@
 (require 'dash)
 (require 'advent-utils)
 
-(setq example (advent/read-problem-text 11 :example))
-(setq problem (advent/read-problem-text 11 :problem))
+(setq example (advent/read-blocks-of-lines 11 :example))
+(setq problem (advent/read-blocks-of-lines 11 :problem))
 
 (setq e (eval (read example)))
 (setq p (eval (read problem)))
