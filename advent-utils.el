@@ -14,13 +14,6 @@
   "Not present for some reason"
   `(unless ,condition (error (or ,message "Assertion failed"))))
 
-;;; TODO/FIXME use dash
-(defun advent/list-replace (a-list index new-value)
-  (let ((copy (apply #'list a-list)))
-    (setcar (nthcdr index copy) new-value)
-    copy))
-
-
 (defun advent/v->l (vector)
   (append vector '()))
 

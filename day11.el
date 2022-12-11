@@ -66,20 +66,23 @@
   (zerop (mod a b)))
 
 (defun day11/no-stress-monkey-function-generator (_ monkey counter-bump-f)
-  ;; TODO/FIXME can be easily optimized (remove the cond/case/if and plist-get!)
-  (lambda (item)
-    (funcall counter-bump-f (plist-get monkey :monkey))
-    (let ((operation (plist-get monkey :operation)))
+  (let ((operation (plist-get monkey :operation))
+        (test-factor (plist-get monkey :test))
+        (true-index (plist-get monkey :true))
+        (false-index (plist-get monkey :false))
+        (index (plist-get monkey :monkey)))
+   (lambda (item)
+     (funcall counter-bump-f index)
      (let ((result (/ (case (car operation)
                         (:square (* item item))
                         (:+ (+ item (cadr operation)))
                         (:* (* item (cadr operation)))
                         (t (error (format "Unexpected operation (%s)" operation))))
                       3)))
-    (if (day11/can-be-divided result (plist-get monkey :test))
-        (list result (plist-get monkey :true))
-      (list result (plist-get monkey :false)))       
-       ))))
+       (list result
+             (if (day11/can-be-divided result test-factor)
+                 true-index
+               false-index))))))
 
 (defun day11/prepare-no-stress-data (monkeys counter-update-f)
   (day11/prepare-data monkeys #'not
@@ -91,9 +94,11 @@
   (let* ((items (elt all-items index))
         (value-position (funcall monkey (car items))))
     (seq-let (value position) value-position      
-      (advent/list-replace (advent/list-replace all-items index (rest items))
-                           position
-                           (append (elt all-items position) (list value))))))
+      (-replace-at position
+                   (append (elt all-items position) (list value))
+                   (-replace-at index
+                                (rest items)
+                                all-items)))))
 
 (defun day11/update-items (monkey index all-items)
   (let ((monkey-items (elt all-items index)))
@@ -106,7 +111,6 @@
 (defun day11/bump-counter (counter index)
   (aset counter index (1+ (aref counter index))))
 
-;;; TODO/FIXME modifies counter but the name lies!
 (defun day11/do-round (items monkeys)
   (list monkeys
         (-reduce-from (lambda (items monkey&index)
