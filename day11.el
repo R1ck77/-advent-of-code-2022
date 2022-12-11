@@ -17,8 +17,9 @@
        (list new (funcall test new))))))
 
 (defun day11/extract-items (monkey-items)
-  ;(apply #'vector (plist-get monkey-items :items))
-  (plist-get monkey-items :items))
+  (--map (list :fact (list it)
+               :add 0)
+         (plist-get monkey-items :items)))
 
 (defun day11/separate-data-from-functions (monkeys-items post-process-f)
   (list (--map (day11/extract-monkeys it post-process-f) monkeys-items)
@@ -67,7 +68,6 @@
 (defun day11/get-counter-for-rounds (monkeys items index)
   (let ((counter))
     (--dotimes index
-      (print counter)
      (seq-let (_ new-items updated-counter) (day11/do-round monkeys items counter)
        (setq items new-items)
        (setq counter updated-counter)) ;; TODO/FIXME geez

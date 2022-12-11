@@ -1,7 +1,7 @@
 (list
  (list :monkey 0
        :items '(79 98)
-       :operation (lambda (old) (* old 19))
+       :operation [nil 19 0]
        :test (lambda (x) (if (zerop (mod x 23)) 2 3)))
  (list :monkey 1
        :items '(54 65 75 74)
