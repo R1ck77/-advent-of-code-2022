@@ -133,10 +133,54 @@
       (day11/get-counter-for-rounds items monkeys 20))
     (day11/compute-monkey-business counter)))
 
+(defun day11/extract-all-factors (raw-monkeys)
+  (-uniq (--map (plist-get it :test) raw-monkeys)))
 
-(defun day11/part-2 (text)
-    (let ((monkeys-items (eval (read text))))
-    (seq-let (monkeys items) (day11/separate-data-from-functions monkeys-items #'identity)
-        (day11/compute-monkey-business (day11/get-counter-for-rounds monkeys items 10000)))))
+(defun day11/compute-reminders (factors item)
+  (--map (cons it (mod item it)) factors))
+
+(defun day11/update-reminder (operation factor reminder)
+  (let ((operator (car operation))
+        (op2 (cadr operation)))
+   (case operator
+     (:+ (mod (+ reminder op2) factor))
+     (:* (mod (* reminder (mod op2 factor)) factor))
+     (:square (mod (* reminder reminder) factor)))))
+
+(defun day11/update-reminders (operation item)
+  (-map (lambda (factor&reminder)
+          (let ((factor (car factor&reminder))
+                (reminder (cdr factor&reminder)))            
+            (cons factor (day11/update-reminder operation factor reminder))))
+        item))
+
+(defun day11/stressful-monkey-function-generator (factors monkey counter-bump-f)
+  (let ((operation (plist-get monkey :operation))
+        (index (plist-get monkey :monkey))
+        (test-divisor (plist-get monkey :test))
+        (true-index (plist-get monkey :true))
+        (false-index (plist-get monkey :false)))
+   (lambda (item)
+     (funcall counter-bump-f index)
+     (let ((new-item (day11/update-reminders operation item)))
+       (list new-item (if (zerop (cdr (assoc test-divisor new-item)))
+                           true-index
+                         false-index))))))
+
+(defun day11/prepare-stressful-data (raw-monkeys counter-update-f)
+  (day11/prepare-data raw-monkeys #'day11/extract-all-factors
+                      #'day11/compute-reminders
+                      (lambda (factors monkey)
+                        (day11/stressful-monkey-function-generator factors
+                                                                   monkey
+                                                                   counter-update-f))))
+
+(defun day11/part-2 (line-blocks)
+  (let* ((raw-data (day11/read-data line-blocks))
+         (counter (make-vector (length raw-data) 0))
+         (bump-counter-f (lambda (index) (day11/bump-counter counter index))))
+    (seq-let (items monkeys) (day11/prepare-stressful-data raw-data bump-counter-f)
+      (day11/get-counter-for-rounds items monkeys 10000))
+    (day11/compute-monkey-business counter)))
 
 (provide 'day11)
