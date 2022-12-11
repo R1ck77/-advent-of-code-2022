@@ -1,0 +1,41 @@
+(list
+ (list
+  :monkey 0
+  :items '(84 66 62 69 88 91 91)
+  :operation (lambda (old) (* old 11))
+  :test (lambda (x) (if (zerop (mod x 2)) 4 7)))
+ (list
+  :monkey 1
+  :items '(98 50 76 99)
+  :operation (lambda (old) (* old old))
+  :test (lambda (x) (if (zerop (mod x 7)) 3 6)))
+ (list
+  :monkey 2
+  :items '(72 56 94)
+  :operation (lambda (old) (+ old 1))
+  :test (lambda (x) (if (zerop (mod x 13)) 4 0)))
+ (list
+  :monkey 3
+  :items '(55 88 90 77 60 67)
+  :operation (lambda (old) (+ old 2))
+  :test (lambda (x) (if (zerop (mod x 3)) 6 5)))
+ (list
+  :monkey 4
+  :items '(69 72 63 60 72 52 63 78)
+  :operation (lambda (old) (* old 13))
+  :test (lambda (x) (if (zerop (mod x 19)) 1 7)))
+ (list
+  :monkey 5
+  :items '(89 73)
+  :operation (lambda (old) (+ old 5))
+  :test (lambda (x) (if (zerop (mod x 17)) 2 0)))
+ (list
+  :monkey 6
+  :items '(78 68 98 88 66)
+  :operation (lambda (old) (+ old 6))
+  :test (lambda (x) (if (zerop (mod x 11)) 2 5)))
+ (list
+  :monkey 7
+  :items '(70)
+  :operation (lambda (old) (+ old 7))
+  :test (lambda (x) (if (zerop (mod x 5)) 1 3))))
