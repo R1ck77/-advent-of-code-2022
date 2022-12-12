@@ -61,7 +61,6 @@
     (advent/-each-grid grid
       (if (eq (advent/get raw-set it-coord) :none)
           (advent/put raw-set it-coord it-value)))
-    (advent/delete raw-set start-coord)
     raw-set))
 
 (defun day12/create-distances (grid-data)
@@ -110,12 +109,8 @@
     (unless (eq raw-distance :inf)
       raw-distance)))
 
-(defun day12/current-distance (d-data)
-  (advent/grid-get (plist-get d-data :distances)
-                   (plist-get d-data :current)))
-
-(defun day12/update-distances! (d-data neighbors)
-  (let ((current-distance (day12/current-distance d-data))
+(defun day12/update-distances! (distances current neighbors)
+  (let ((current-distance (advent/grid-get distances current))
         (distances (plist-get d-data :distances)))
     (--each neighbors
       (let ((neighbor-distance (advent/grid-get distances it))
@@ -134,29 +129,37 @@
                        (--map (list it (advent/grid-get distances it))
                               all-coords)))))))
 
+(defun day12/neighbors-present? (d-data)
+  (let ((distances (plist-get d-data :distances))
+        (unvisited (plist-get d-data :unvisited)))
+   (--filter (not (eq (cadr it) :inf))
+             (--map (list it (advent/grid-get distances it))
+                    (advent/map-hash unvisited (lambda (k _) k))))))
+
 (defun day12/dijkstra (grid-data)
   (let ((d-data (day12/create-dijkstra-initial-data grid-data)))
-    (while (not (day12/get-finish-distance grid-data d-data))
+    (while (eq (advent/grid-get (plist-get d-data :distances)
+                                (plist-get grid-data :finish))
+              :inf)
       (let ((current (plist-get d-data :current))
             (height (plist-get d-data :height))
             (distances (plist-get d-data :distances))
             (unvisited (plist-get d-data :unvisited))
             (neighbors-f (plist-get d-data :neighbors-f)))
-        (print (hash-table-count unvisited))
-        (redraw-frame)
-        (if (zerop (mod (random) 1000)) (sit-for 0))
+        (comment 
+         (print (hash-table-count unvisited))
+         (redraw-frame))
+        (if (zerop (mod (random) 100)) (sit-for 0))
         (let ((available-neighbors (funcall neighbors-f d-data current)))
           (if (not available-neighbors)
               (progn
                 (advent/delete unvisited current)
                 (setq current (day12/pick-unvisited-node distances  unvisited)))
-            (day12/update-distances! d-data available-neighbors)
+            (day12/update-distances! distances current available-neighbors)
             ;; Remove the current element from the list of unvisited
             (advent/delete unvisited current)
             ;; Select the new current element and cache its height
-            (setq current (car (--sort (< (advent/get unvisited it)
-                                          (advent/get unvisited other))
-                                       available-neighbors)))
+            (setq current (day12/pick-unvisited-node distances unvisited))
             (advent/assert current "Nil current detected!"))
          ;;; Data is only partially replaced. It's not immutable!
          (setq d-data (list :current current
