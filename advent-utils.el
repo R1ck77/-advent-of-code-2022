@@ -27,6 +27,10 @@
   (puthash key value table)
   table)
 
+(defun advent/delete (table key)
+  (remhash key table)
+  table)
+
 (defun advent/set-from (items &optional value)
   "Create a set of the items in the input list.
 
@@ -178,7 +182,7 @@ It binds:
   `(advent/update-grid-value! ,grid ,coord (lambda (it) ,@body)))
 
 (defun advent/update-grid! (grid f)
-  "Update in placethe value of a grid with f, which receives the current cell value as input"
+  "Update in place the value of a grid with f, which receives the current cell value as input"
   (loop for i below (length grid) do
         (loop for j below (length (aref grid 0)) do
               (advent/update-grid-value! grid (cons i j) f)))
