@@ -4,7 +4,7 @@
 (defconst example (advent/read-grid 12 :example #'identity))
 (defconst problem (advent/read-grid 12 :problem #'identity))
 
-(defconst day12/lower-level (string-to-char "a"))
+(defconst day12/base-level (string-to-char "a"))
 (defconst day12/highest-level (string-to-char "z"))
 (defconst day12/start-cell-value (string-to-char "S"))
 (defconst day12/end-cell-value (string-to-char "E"))
@@ -22,7 +22,7 @@
        ((= it-value day12/start-cell-value)
         (progn
           (setq start it-coord)
-          (advent/grid-set! grid it-coord day12/lower-level)
+          (advent/grid-set! grid it-coord day12/base-level)
           ))
        ((= it-value day12/end-cell-value)
         (progn
@@ -56,7 +56,6 @@
   (let ((raw-set (advent/set-from (day12/create-all-nodes-list grid-data) :none))
         (start-coord (plist-get grid-data :start))
         (grid (plist-get grid-data :grid)))
-    (advent/assert (eq :none (advent/get raw-set (plist-get grid-data :finish))))
     ;; I'm saving the heights in the visited set
     (advent/-each-grid grid
       (if (eq (advent/get raw-set it-coord) :none)
@@ -80,22 +79,33 @@
   (cons (+ (car a) (car b))
         (+ (cdr a) (cdr b))))
 
-(defun day12/available-nearest-neighbors (d-data row&column)
+(defun day12/available-upwards-neighbors (d-data row&column)
   (let ((unvisited (plist-get d-data :unvisited))
         (height (plist-get d-data :height)))
-    (--filter (<= (day12/get-dji-height d-data it) (1+ height))
+    (--filter (let ((candidate-distance (day12/get-dji-height d-data it)))
+                (>= height (1- candidate-distance)))
+     (--filter it (-map (lambda (increment)
+                          (let ((new-coord (day12/sum-coordinates increment row&column)))
+                            (and (advent/get unvisited new-coord) new-coord)))
+                        '((1 . 0) (-1 . 0) (0 . 1) (0 . -1))))))  )
+
+(defun day12/available-downwards-neighbors (d-data row&column)
+  (let ((unvisited (plist-get d-data :unvisited))
+        (height (plist-get d-data :height)))
+    (--filter (let ((candidate-distance (day12/get-dji-height d-data it)))
+                (<= height (1+ candidate-distance)))
      (--filter it (-map (lambda (increment)
                           (let ((new-coord (day12/sum-coordinates increment row&column)))
                             (and (advent/get unvisited new-coord) new-coord)))
                         '((1 . 0) (-1 . 0) (0 . 1) (0 . -1)))))))
+
 
 (defun day12/create-dijkstra-initial-data (grid-data)
   (let ((current-coord (plist-get grid-data :start)))
     (list :current current-coord
           :height (advent/grid-get (plist-get grid-data :grid) current-coord)
           :distances (day12/create-distances grid-data)
-          :unvisited (day12/create-unvisited-set grid-data)
-          :neighbors-f #'day12/available-nearest-neighbors)))
+          :unvisited (day12/create-unvisited-set grid-data))))
 
 
 (defun day12/get-unvisited-neighbors (grid-data d-data)
@@ -136,20 +146,21 @@
              (--map (list it (advent/grid-get distances it))
                     (advent/map-hash unvisited (lambda (k _) k))))))
 
-(defun day12/dijkstra (grid-data)
+;; TODO/FIXME cache, even horribly if required, this bad boy
+(defun day12/dijkstra-should-continue? (grid-data d-data)
+  (if-let ((finish (plist-get grid-data :finish)))
+      ;; If finish is specified, stop as soon as I get there
+      (eq (advent/grid-get (plist-get d-data :distances) finish) :inf)
+    ;; otherwise stop as soon as the unvisited node is empty (slooooooowww!)
+    (day12/neighbors-present? d-data)))
+
+(defun day12/dijkstra (grid-data neighbors-f)
   (let ((d-data (day12/create-dijkstra-initial-data grid-data)))
-    (while (eq (advent/grid-get (plist-get d-data :distances)
-                                (plist-get grid-data :finish))
-              :inf)
+    (while (day12/dijkstra-should-continue? grid-data d-data)
       (let ((current (plist-get d-data :current))
             (height (plist-get d-data :height))
             (distances (plist-get d-data :distances))
-            (unvisited (plist-get d-data :unvisited))
-            (neighbors-f (plist-get d-data :neighbors-f)))
-        (comment 
-         (print (hash-table-count unvisited))
-         (redraw-frame))
-        (if (zerop (mod (random) 100)) (sit-for 0))
+            (unvisited (plist-get d-data :unvisited)))
         (let ((available-neighbors (funcall neighbors-f d-data current)))
           (if (not available-neighbors)
               (progn
@@ -161,19 +172,38 @@
             ;; Select the new current element and cache its height
             (setq current (day12/pick-unvisited-node distances unvisited))
             (advent/assert current "Nil current detected!"))
-         ;;; Data is only partially replaced. It's not immutable!
-         (setq d-data (list :current current
-                            :height (advent/get unvisited current)
-                            :distances distances
-                            :unvisited unvisited
-                            :neighbors-f neighbors-f)))))
-    (day12/get-finish-distance grid-data d-data)))
+          (setq d-data (list :current current
+                             :height (advent/get unvisited current)
+                             :distances distances
+                             :unvisited unvisited)))))
+    d-data))
 
 (defun day12/part-1 (grid)
-  (day12/dijkstra (day12/read-grid-data grid)))
+  (let* ((grid-data (day12/read-grid-data grid))
+         (d-data (day12/dijkstra grid-data #'day12/available-upwards-neighbors)))
+    (day12/get-finish-distance grid-data d-data)))
+
+(defun day12/invert-problem (old-grid-data)
+  (list :grid (plist-get old-grid-data :grid)
+        :rows (plist-get old-grid-data :rows)
+        :columns (plist-get old-grid-data :columns)
+        :start (plist-get old-grid-data :finish)
+        :finish nil))
+
+(defun day12/find-all-starts (grid-data d-data)  
+  (let* ((grid (plist-get grid-data :grid))
+        (distances (plist-get d-data :distances))
+        (candidate))
+    (advent/-each-grid distances
+      (unless (or (eq it-value :inf)
+                  (/= (advent/grid-get grid it-coord) day12/base-level))
+        (setq candidate (cons it-value candidate))))
+    candidate))
 
 (defun day12/part-2 (grid)
-  (error "Not yet implemented"))
+  (let* ((grid-data (day12/invert-problem (day12/read-grid-data grid)))
+         (d-data (day12/dijkstra grid-data #'day12/available-downwards-neighbors)))
+    (car (-sort #'< (day12/find-all-starts grid-data d-data)))))
 
 (provide 'day12)
 
