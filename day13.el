@@ -2,11 +2,8 @@
 (require 'advent-utils)
 (require 's)
 
-;;; 5081 too low
-
 (defvar example (advent/read-blocks-of-lines 13 :example))
 (defvar problem (advent/read-blocks-of-lines 13 :problem))
-(defvar nogood (car (day13/read-packets (list (elt problem 60)))))
 
 (defun day13/read-packet (line)
   (read
@@ -21,20 +18,21 @@
 (defun day13/read-packets (line-blocks)
   (-map #'day13/read-pair line-blocks))
 
+
+
 (defun day13/compare-lists (left right)
   (let ((result '(nil nil)))
     (while (not (or (car result) (cadr result)))
       (sit-for 0)
-      (setq result (let ((a (car left))
-                         (b (car right)))
-                     (setq left (rest left))
-                     (setq right (rest right))
-                     (cond
-                      ((not (or a b)) '(nil t))
-                      ((and a b) (list (day13/compare a b) nil))
-                      ((not a) '(:ok nil))
-                      ((not b) '(:error nil))
-                      (t (error (format "Unexpected condition for '%s' vs '%s'" a b)))))))
+      (setq result (cond
+                    ((not (or left right)) '(nil t))
+                    ((not left) '(:ok nil))
+                    ((not right) '(:error nil))
+                    (t (let ((a (car left))
+                             (b (car right)))
+                         (setq left (rest left))
+                         (setq right (rest right))
+                         (list (day13/compare a b) nil))))))
     (car result)))
 
 (defun day13/compare-left-list (left right)
