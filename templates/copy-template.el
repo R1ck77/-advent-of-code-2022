@@ -36,7 +36,8 @@
   (template/with-read-file (template/get-solution-template templates)
     (template/-replace-tokens day)
     (let ((out-name (template/get-solution-file day)))
-      (delete-file out-name)
+      (when (file-exists-p out-name)
+          (error (format "The output file '%s already exists!" out-name)))
       (append-to-file (point-min)
                       (point-max)
                       (template/get-solution-file day)))))
@@ -51,13 +52,15 @@
   (template/with-read-file (template/get-test-template templates)
     (template/-replace-tokens day)
     (let ((out-name (template/get-test-file day)))
-      (delete-file out-name)
+      (when (file-exists-p out-name)
+        (error (format "The output file '%s already exists!" out-name)))
       (append-to-file (point-min)
                       (point-max)
                       out-name))))
 
 (defun template/touch-file (filename)
-  ;;; TODO/FIXME there is probably a less awkward way to do it
+  (when (file-exists-p filename)
+    (error (format "The output file '%s already exists!" filename)))
   (append-to-file (point-min) (point-min) filename))
 
 (defun template/create-empty-data-files (day)
