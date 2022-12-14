@@ -5,6 +5,7 @@
 
 (defconst example (advent/read-problem-lines 14 :example))
 (defconst problem (advent/read-problem-lines 14 :problem))
+(defconst day14/image-filename "day14.ppm")
 
 (defun day14/list-to-cons (a-b)
   (cons (car a-b) (cadr a-b)))
@@ -166,6 +167,7 @@
     counter))
 
 (defun day14/debug-write-current-grid-to-buffer ()
+  "Print the result of the last simulation as a buffer (which may slow down Emacs considerably)"
   (advent/assert *grid-data* "No *grid-data* present. Did you run a simulation?")
   (let ((buffer (get-buffer-create "*Sand*"))
         (grid (plist-get *grid-data* :grid)))
@@ -189,7 +191,35 @@
             (insert "\n")))))
     (switch-to-buffer buffer)))
 
+(defun day14/debug-write-current-grid-to-ppm (&optional filename)
+  "Print the result of the last simulation to a ppm file"
+  (advent/assert *grid-data* "No *grid-data* present. Did you run a simulation?")
+  (setq filename (or filename day14/image-filename))
+  (let* ((grid (plist-get *grid-data* :grid))
+         (grid-size (advent/get-grid-size grid)))
+   (with-temp-buffer
+     (insert (format "P3\n%d %d\n255\n" (cdr grid-size) (car grid-size)))
+     (let ((row 0)
+           (column 0))
+       (-each (append grid nil)
+         (lambda (line)
+           (--each (append line nil)
+             (insert (case (advent/grid-get grid (cons row column))
+                       (:rock "133 55 71 ")
+                       (:sand "226 190 49 ")
+                       (:void "190 190 190 ")
+                       (:DOOM "255 255 0 ")
+                       (t (error (format "Unexpected value '%s' for (%d . %d)" (advent/grid-get grid (cons row column))
+                                         row column)))))
+             (setq column (1+ column)))
+           (setq row (1+ row))
+           (setq column 0)
+           (insert "\n"))))
+     (write-file filename)
+     filename)))
+
 (defun day14/part-2 (lines)
   (day14/extended-simulation! (setq *grid-data* (day14/create-large-playground (day14/read-problem lines)))))
 
 (provide 'day14)
+
