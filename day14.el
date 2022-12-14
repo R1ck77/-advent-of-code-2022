@@ -73,12 +73,15 @@
 (defun day14/add-rock-to-grid! (grid segments)
   (--map (day14/add-rock-segment-to-grid! grid it) segments))
 
-(defun day14/add-doom-line! (grid)
+(defun day14/add-bottom-line (grid value)
   (let ((last-line (aref grid (1- (length grid)))))
     (--dotimes (length last-line)
-      (aset last-line it :DOOM))))
+      (aset last-line it value))))
 
-(defun day14/create-playground (rock-def)
+(defun day14/add-doom-line! (grid)
+  (day14/add-bottom-line grid :DOOM))
+
+(defun day14/create-normalized-playground (rock-def)
   (setq rock-def (day14/normalize rock-def))
   (let ((segments (plist-get rock-def :segments))
         (limits (plist-get rock-def :limits)))
@@ -89,16 +92,6 @@
       (list :grid grid
             :source (let ((source (plist-get rock-def :source)))
                       (cons (cdr source) (car source)))))))
-
-;; TODO/FIXME maybe I don't need this
-(defun day14/generate-off-grid?-function (grid)
-  (let ((max-x (length (aref grid 0)))
-                (max-depth (length grid)))
-   (lambda (pos)
-     (let ((x (car pos))
-           (depth (cdr pos)))
-       (or (< x 0) (> x max-x)
-           (> depth max-depth))))))
 
 (defun day14/evaluate-move (grid pos dy&dx)
   (let* ((new-pos (cons (+ (car pos) (car dy&dx))
@@ -117,7 +110,6 @@
       (day14/evaluate-move grid pos '(1 . -1))
       (day14/evaluate-move grid pos '(1 . 1))))
 
-;; TODO/FIXME very slow: I need to keep track of the pile heights
 (defun day14/evolve-grain! (grid  pos)
   (let ((move (day14/get-grain-move grid pos)))
     (cond
@@ -138,9 +130,66 @@
     counter))
 
 (defun day14/part-1 (lines)
-  (day14/basic-simulation! (day14/create-playground (day14/read-problem lines))))
+  (day14/basic-simulation!
+   (setq *grid-data*
+         (day14/create-normalized-playground
+          (day14/read-problem lines)))))
+
+(defun day14/add-bedrock-line! (grid)
+  (day14/add-bottom-line grid :rock))
+
+(defun day14/drop-if-possible! (grid-data)
+  (let* ((grid (plist-get grid-data :grid))
+         (source (plist-get grid-data :source)))
+    (if (not (eq (advent/grid-get grid source) :sand))
+        (progn
+          (day14/drop-grain! grid-data)
+          t))))
+
+(defun day14/create-large-playground (rock-def)
+  (let* ((segments (plist-get rock-def :segments))
+         (limits (plist-get rock-def :limits))
+         (max-depth (cdadr limits))
+         (max-width (caadr limits)))
+    ;; Add extra 2 rows to the bottom
+    (let ((grid (advent/make-grid  (+ 3 max-depth) 1002 :void)))
+      (day14/add-rock-to-grid! grid segments)
+      (day14/add-bedrock-line! grid)
+      (list :grid grid
+            :source (let ((source (plist-get rock-def :source)))
+                      (cons (cdr source) (car source)))))))
+
+(defun day14/extended-simulation! (grid-data)
+  (let ((counter 0))
+    (while (day14/drop-if-possible! grid-data)
+      (setq counter (1+ counter)))
+    counter))
+
+(defun day14/debug-write-current-grid-to-buffer ()
+  (advent/assert *grid-data* "No *grid-data* present. Did you run a simulation?")
+  (let ((buffer (get-buffer-create "*Sand*"))
+        (grid (plist-get *grid-data* :grid)))
+    (with-current-buffer buffer
+      (erase-buffer)
+      (let ((row 0)
+            (column 0))
+        (-each (append grid nil)
+          (lambda (line)
+            (--each (append line nil)
+              (insert (case (advent/grid-get grid (cons row column))
+                        (:rock "#")
+                        (:sand ".")
+                        (:void " ")
+                        (:DOOM "🡃")
+                        (t (error (format "Unexpected value '%s' for (%d . %d)" (advent/grid-get grid (cons row column))
+                                          row column)))))
+              (setq column (1+ column)))
+            (setq row (1+ row))
+            (setq column 0)
+            (insert "\n")))))
+    (switch-to-buffer buffer)))
 
 (defun day14/part-2 (lines)
-  (error "Not yet implemented"))
+  (day14/extended-simulation! (setq *grid-data* (day14/create-large-playground (day14/read-problem lines)))))
 
 (provide 'day14)
