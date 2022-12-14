@@ -15,7 +15,7 @@
   (-partition-in-steps 2 1 (day14/read-checkpoints line)))
 
 (defun day14/read-path-segments (lines)
-  (-flatten-n 1 (-map #'day14/read-path example)))
+  (-flatten-n 1 (-map #'day14/read-path lines)))
 
 (defun day14/read-bedrock-limits (segments)
   (let ((points (-uniq (-flatten segments))))
@@ -54,12 +54,31 @@
             :limits (day14/normalize-segment dx limits)
             :source (day14/normalize-point dx source)))))
 
+(defun day14/sequence (from to)
+  (if (<= to from)
+      (number-sequence to from)
+    (number-sequence from to)))
+
+(defun day14/add-rock-segment-to-grid! (grid a-b)
+  (seq-let (a b) a-b
+    (if (= (car a) (car b))
+        ;; vertical line
+        (--each (day14/sequence (cdr a) (cdr b))
+          (advent/grid-set! grid (cons it (car a)) :rock))
+      ;; horizontal line
+      (--each (day14/sequence (car a) (car b))
+        (advent/grid-set! grid (cons (cdr a) it) :rock)))))
+
+(defun day14/add-rock-to-grid! (grid segments)
+  (--map (day14/add-rock-segment-to-grid! grid it) segments))
+
 (defun day14/create-playground (rock-def)
   (setq rock-def (day14/normalize rock-def))
   (let ((segments (plist-get rock-def :segments))
         (limits (plist-get rock-def :limits)))
-    (let ((grid (advent/make-grid (caadr limits) (cdadr limits) :void)))
-      (advent/add-rock-to-grid! grid segments)
+    (let ((grid (advent/make-grid  (1+ (cdadr limits)) (1+ (caadr limits)) :void)))
+      (day14/add-rock-to-grid! grid segments)
+      grid
       )))
 
 (defun day14/part-1 (lines)
