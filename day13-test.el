@@ -1,7 +1,7 @@
 (require 'day13)
 (require 'buttercup)
 
-(describe "Day 13"
+(describe "--- Day 13: Distress Signal ---"
   (describe "part 1"
     (it "replicates the example"
       (expect (day13/part-1 (advent/read-blocks-of-lines 13 :example))
