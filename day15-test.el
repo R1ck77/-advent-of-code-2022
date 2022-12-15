@@ -1,7 +1,7 @@
 (require 'day15)
 (require 'buttercup)
 
-(describe "Day 15"
+(describe "--- Day 15: Beacon Exclusion Zone ---"
   (describe "part 1"
     (it "replicates the example"
       (expect (day15/part-1 (advent/read-problem-lines 15 :example) 10)
@@ -9,10 +9,10 @@
     (it "solves the problem"
       (expect (day15/part-1 (advent/read-problem-lines 15 :problem) 2000000)
               :to-be 5240818)))
-  (xdescribe "part 2"
+  (describe "part 2"
     (it "replicates the example"
-      (expect (day15/part-2 (advent/read-problem-lines 15 :example))
-              :to-be 42))
+      (expect (day15/part-2 (advent/read-problem-lines 15 :example) 20)
+              :to-be 56000011))
     (xit "solves the problem"
-      (expect (day15/part-2 (advent/read-problem-lines 15 :problem))
+      (expect (day15/part-2 (advent/read-problem-lines 15 :problem) 4000000)
               :to-be 42))))

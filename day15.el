@@ -44,6 +44,9 @@
 (defun day15/all-intervals (sensors-data y)
   (--filter it (--map (day15/sensor-interval it y) sensors-data)))
 
+(defun day15/clip-to-value (x max-x)
+  (max (min x max-x) 0))
+
 ;;; Probably not needed
 (defun day15/sort-intervals (a b)
   (or
@@ -85,7 +88,66 @@
                                                                            y))
                             y))))
 
-(defun day15/part-2 (lines)
-  (error "Not yet implemented"))
+(defun day15/subtract-interval (this other)
+  ;;; TODO/FIXME actual code here :)
+  (cond
+   ;; no intersection
+   ((or (> (car other) (cdr this))
+        (< (cdr other) (car this))
+        (> (car this) (cdr other))
+        (< (cdr this) (car other)))
+    (list this))
+   ;; proper inclusion of this and other (nothing left)
+   ((and (>= (car this) (car other))
+         (<= (cdr this) (cdr other)))
+    nil)
+   ;; proper inclusion of other in this (this gets splitted)
+   ((and (> (car other) (car this))
+         (< (cdr other) (cdr this)))
+    (list (cons (car this) (1- (car other)))
+          (cons (1+ (cdr other)) (cdr this))))
+   ;; other eats this' head
+   ((and (>= (car this) (car other))
+         (<= (car this) (cdr other)))
+    (list (cons (1+ (cdr other)) (cdr this))))
+   ;; other eats this' tail
+   ((and (>= (cdr this) (car other))
+         (<= (cdr this) (cdr other)))
+    (list (cons (car this) (1- (car other)))))
+   (t
+    (error (format "Unexpected intersection condition ('%s' vs '%s')" this other)))))
+
+(defun day15/remove-interval (acc interval)
+  (--mapcat (day15/subtract-interval it interval) acc))
+
+(defun day15/allowed-positions (sensors-data max-search-distance y)
+  (let ((all-intervals (day15/all-intervals sensors-data y)))
+   (-reduce-from #'day15/remove-interval
+                 (list (cons 0 max-search-distance))
+                 all-intervals)))
+
+(defun day15/debug-print-progression (i &optional module)
+  (when (zerop (mod i (or module 10000)))
+    (print i)
+    (sit-for 0)))
+
+(defun day15/get-missing-spot (sensors-data max-range)
+    (let ((allowed-positions)
+          (i 0))
+      (while (and (not (setq allowed-positions (day15/allowed-positions sensors-data max-range i)))
+                  (<= i max-range))
+        (day15/debug-print-progression i)
+        (setq i (1+ i)))
+      (advent/assert (= (caar allowed-positions) (cdar allowed-positions)))
+      (cons (caar allowed-positions) i)))
+
+(defun day15/compute-tuning-frequency (x&y)
+  (+ (* (car x&y) 4000000)
+     (cdr x&y)))
+
+(defun day15/part-2 (lines max-range)
+  (day15/compute-tuning-frequency
+   (day15/get-missing-spot (day15/read-problem lines) max-range))
+)
 
 (provide 'day15)
