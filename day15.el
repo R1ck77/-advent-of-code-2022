@@ -145,6 +145,7 @@
   (+ (* (car x&y) 4000000)
      (cdr x&y)))
 
+; 1321308690610 too low
 (defun day15/part-2 (lines max-range)
   (day15/compute-tuning-frequency
    (day15/get-missing-spot (day15/read-problem lines) max-range))
