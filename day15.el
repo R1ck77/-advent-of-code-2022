@@ -2,9 +2,6 @@
 (require 'advent-utils)
 (require 's)
 
-(defconst example (advent/read-problem-lines 15 :example))
-(defconst problem (advent/read-problem-lines 15 :problem))
-
 (defstruct  day15-data "Definition for a sensor and associated beacon"
             sensor
             beacon
@@ -126,29 +123,21 @@
                  (list (cons 0 max-search-distance))
                  all-intervals)))
 
-(defun day15/debug-print-progression (i &optional module)
-  (when (zerop (mod i (or module 10000)))
-    (print i)
-    (sit-for 0)))
-
-(defun day15/get-missing-spot (sensors-data max-range)
-    (let ((allowed-positions)
-          (i 0))
-      (while (and (not (setq allowed-positions (day15/allowed-positions sensors-data max-range i)))
-                  (<= i max-range))
-        (day15/debug-print-progression i)
-        (setq i (1+ i)))
-      (advent/assert (= (caar allowed-positions) (cdar allowed-positions)))
-      (cons (caar allowed-positions) i)))
+(defun day15/get-missing-spot (sensors-data max-range &optional start-at)
+  (let ((allowed-positions)
+        (i (or start-at 0)))
+    (while (and (not (setq allowed-positions (day15/allowed-positions sensors-data max-range i)))
+                (<= i max-range))
+      (setq i (1+ i)))
+    (advent/assert (= (caar allowed-positions) (cdar allowed-positions)))
+    (cons (caar allowed-positions) i)))
 
 (defun day15/compute-tuning-frequency (x&y)
   (+ (* (car x&y) 4000000)
      (cdr x&y)))
 
-; 1321308690610 too low
-(defun day15/part-2 (lines max-range)
+(defun day15/part-2 (lines max-range &optional start-at)
   (day15/compute-tuning-frequency
-   (day15/get-missing-spot (day15/read-problem lines) max-range))
-)
+   (day15/get-missing-spot (day15/read-problem lines) max-range start-at)))
 
 (provide 'day15)
