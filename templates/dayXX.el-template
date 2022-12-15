@@ -1,5 +1,6 @@
 (require 'dash)
 (require 'advent-utils)
+(require 's)
 
 (defun dayXX/part-1 (lines)
   (error "Not yet implemented"))
