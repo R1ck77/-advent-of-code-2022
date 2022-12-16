@@ -88,6 +88,13 @@
 (defun day16/get-non-zero-flow-nodes (valve-data)
   (-map #'car (--filter (not (zerop (cdr it))) (advent/-map-hash valve-data (cons it-key (day16-valve-flow it-value))))))
 
+(defun day16/assert-has-no-connections-to-flowing-tunnels (valve-data node-name)
+  "Checks if there are connections between valves with non 0 flows.
+
+It turns out it can happen"
+  (--each (day16-valve-tunnels (advent/get valve-data node-name))
+    (advent/assert (zerop (day16-valve-flow (advent/get valve-data it))))))
+
 (defun day16/part-1 (lines)
   (error "Not yet implemented"))
 
