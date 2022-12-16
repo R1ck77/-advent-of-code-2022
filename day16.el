@@ -119,6 +119,13 @@ It turns out it can happen"
            projected-flow
            remaining)
 
+(defun day16/max-projected-outcome (valve-data path)
+  (let ((remaining-time (- day16/total-time 2 (day16-path-time path)))
+        (remaining-flow (+ (day16-path-projected-flow path)
+                           (apply #'+ (--map (day16-valve-flow (advent/get valve-data it))
+                                             (day16-path-remaining path))))))
+    (* remaining-flow remaining-time)))
+
 (defun day16/path-outcome (valve-data current-path-data end-valve-name)
   (let ((previous-path (day16-path-path current-path-data))
         (remaining (day16-path-remaining current-path-data))
@@ -136,27 +143,37 @@ It turns out it can happen"
   (--map (day16/path-outcome valve-data
                              path-data
                              it)
-         (day16-path-remaining path-data)))
+         (--sort (> (day16-valve-flow (advent/get valve-data it))
+                    (day16-valve-flow (advent/get valve-data other)))
+                 (day16-path-remaining path-data))))
+
+;;; TODO/FIXME remove
+(defvar *best-so-far* 0 "This is a horrible thing…" )
 
 (defun day16/best-path-options (valve-data path-data)
-  (let* ((last-node (car (day16-path-path path-data)))
-         (distances (day16/dijkstra valve-data last-node))
-         (remaining (day16-path-remaining path-data))
-         (time (day16-path-time path-data)))
-    ;; I could probably add another condition for projected flow
-    (if (or (>= time 30) (not remaining))
-        (let ((result           (day16-path-projected-flow path-data)))
-                  (print (format "Result: %s" result))
-                  (sit-for 0)
-                  result)      
-      (let ((result (car
-              (-sort #'>
-                     (--map (day16/best-path-options valve-data it)
-                            (day16/sub-paths valve-data path-data))))))
-        result))))
+  (let ((result (let* ((last-node (car (day16-path-path path-data)))
+                       (distances (day16/dijkstra valve-data last-node))
+                       (remaining (day16-path-remaining path-data))
+                       (time (day16-path-time path-data)))
+                  ;; I could probably add another condition for projected flow
+                  (if (or (>= time day16/total-time)
+                          (not remaining)
+                          (and t (<= (day16/max-projected-outcome valve-data path-data) *best-so-far*)))
+                      (let ((result (day16-path-projected-flow path-data)))
+                        (print (format "Result: %s (Best: %s)" result *best-so-far*))
+                        (sit-for 0)
+                        result)      
+                    (let ((result (car
+                                   (-sort #'>
+                                          (--map (day16/best-path-options valve-data it)
+                                                 (day16/sub-paths valve-data path-data))))))
+                      result)))))
+    (setq *best-so-far* (max result *best-so-far*))
+    *best-so-far*))
 
 
 (defun day16/best-path (valve-data)
+  (setq *best-so-far* 0)
   (day16/best-path-options valve-data
                            (make-day16-path :path '(:AA)
                                             :time 0
