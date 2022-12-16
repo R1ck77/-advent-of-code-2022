@@ -119,12 +119,15 @@ It turns out it can happen"
            projected-flow
            remaining)
 
-(defun day16/max-projected-outcome (valve-data path)
-  (let ((remaining-time (- day16/total-time 2 (day16-path-time path)))
-        (remaining-flow (+ (day16-path-projected-flow path)
-                           (apply #'+ (--map (day16-valve-flow (advent/get valve-data it))
-                                             (day16-path-remaining path))))))
-    (* remaining-flow remaining-time)))
+(defun day16/max-projected-outcome (valve-data path time)  
+  (let ((all-sorted-flows (-sort #'> (--map (day16-valve-flow (advent/get valve-data it))
+                                            (day16-path-remaining path)))))
+    (+ (day16-path-projected-flow path)
+       (apply #'+ (--map (* (car it) (cdr it))
+                         (--filter (> (car it) 0)
+                                   (--map-indexed (cons (- day16/total-time time (* (1+ it-index) 2))
+                                                        it)
+                                                  all-sorted-flows)))))))
 
 (defun day16/path-outcome (valve-data current-path-data end-valve-name)
   (let ((previous-path (day16-path-path current-path-data))
@@ -139,6 +142,30 @@ It turns out it can happen"
                       :projected-flow (+ new-projected-flow current-flow)
                       :remaining (-remove-item end-valve-name remaining)))))
 
+;;; TODO/FIXME remove
+;;;(defun swap (LIST el1 el2)
+;;;  "in LIST swap indices EL1 and EL2 in place"
+;;;  (let ((tmp (elt LIST el1)))
+;;;    (setf (elt LIST el1) (elt LIST el2))
+;;;    (setf (elt LIST el2) tmp)))
+;;;
+;;;;;;TODO/FIXME copy/paste
+;;;(defun shuffle (LIST)
+;;;  "Shuffle the elements in LIST.
+;;;shuffling is done in place."
+;;;  (loop for i in (reverse (number-sequence 1 (1- (length LIST))))
+;;;        do (let ((j (random (+ i 1))))
+;;;             (swap LIST i j)))
+;;;  LIST)
+;;;
+;;;;;; TODO/FIXME let's give it a go…
+;;;(defun day16/sub-paths (valve-data path-data)
+;;;  (--map (day16/path-outcome valve-data
+;;;                             path-data
+;;;                             it)
+;;;         (shuffle (apply #'list (day16-path-remaining path-data)))))
+;;;
+
 (defun day16/sub-paths (valve-data path-data)
   (--map (day16/path-outcome valve-data
                              path-data
@@ -146,6 +173,7 @@ It turns out it can happen"
          (--sort (> (day16-valve-flow (advent/get valve-data it))
                     (day16-valve-flow (advent/get valve-data other)))
                  (day16-path-remaining path-data))))
+
 
 ;;; TODO/FIXME remove
 (defvar *best-so-far* 0 "This is a horrible thing…" )
@@ -158,10 +186,11 @@ It turns out it can happen"
                   ;; I could probably add another condition for projected flow
                   (if (or (>= time day16/total-time)
                           (not remaining)
-                          (and t (<= (day16/max-projected-outcome valve-data path-data) *best-so-far*)))
+                          (and t (<= (day16/max-projected-outcome valve-data path-data time) *best-so-far*)))
                       (let ((result (day16-path-projected-flow path-data)))
-                        (print (format "Result: %s (Best: %s)" result *best-so-far*))
-                        (sit-for 0)
+                        (comment
+                          (print (format "Result: %s (Best: %s)" result *best-so-far*))
+                          (sit-for 0))
                         result)      
                     (let ((result (car
                                    (-sort #'>
@@ -172,8 +201,8 @@ It turns out it can happen"
     *best-so-far*))
 
 
-(defun day16/best-path (valve-data)
-  (setq *best-so-far* 0)
+(defun day16/best-path (valve-data &optional best-value)
+  (setq *best-so-far* (or best-value 0))
   (day16/best-path-options valve-data
                            (make-day16-path :path '(:AA)
                                             :time 0
@@ -181,8 +210,8 @@ It turns out it can happen"
                                             :remaining (day16/get-non-zero-flow-nodes valve-data))))
 
 
-(defun day16/part-1 (lines)
-  (error "Not yet implemented"))
+(defun day16/part-1 (lines &optional best-value)
+  (day16/best-path (day16/read-problem lines) best-value))
 
 (defun day16/part-2 (lines)
   (error "Not yet implemented"))
