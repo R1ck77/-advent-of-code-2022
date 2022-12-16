@@ -33,6 +33,9 @@
       (advent/put valves (day16-valve-name it) it))
     valves))
 
+(setq evalves (day16/read-problem example))
+(setq pvalves (day16/read-problem problem))
+
 (defun day16/valves-comparator (distances valve-a valve-b)
   (let ((a-dist (advent/get distances valve-a))
         (b-dist (advent/get distances valve-b)))
@@ -118,24 +121,39 @@ It turns out it can happen"
 
 (defun day16/path-outcome (valve-data current-path-data end-valve-name)
   (let ((previous-path (day16-path-path current-path-data))
-        (remaining (day16-path-remaining current-path-data)))
+        (remaining (day16-path-remaining current-path-data))
+        (current-flow (day16-path-projected-flow current-path-data)))
    (seq-let (end-time new-projected-flow) (day16/move-outcome valve-data
                                                           (day16-path-time current-path-data)
                                                           (car (day16-path-path current-path-data))
                                                           end-valve-name)
      (make-day16-path :path (cons end-valve-name previous-path)
                       :time end-time
-                      :projected-flow new-projected-flow
-                      :remaining (-remove-item end-valve-name remaining))))
-  )
+                      :projected-flow (+ new-projected-flow current-flow)
+                      :remaining (-remove-item end-valve-name remaining)))))
+
+(defun day16/sub-paths (valve-data path-data)
+  (--map (day16/path-outcome valve-data
+                             path-data
+                             it)
+         (day16-path-remaining path-data)))
 
 (defun day16/best-path-options (valve-data path-data)
   (let* ((last-node (car (day16-path-path path-data)))
-         (distances (day16/dijkstra valve-data last-node)))
-    (--map (day16/path-outcome valve-data
-                               path-data
-                               it)
-           (day16-path-remaining path-data))))
+         (distances (day16/dijkstra valve-data last-node))
+         (remaining (day16-path-remaining path-data))
+         (time (day16-path-time path-data)))
+    ;; I could probably add another condition for projected flow
+    (if (or (>= time 30) (not remaining))
+        (let ((result           (day16-path-projected-flow path-data)))
+                  (print (format "Result: %s" result))
+                  (sit-for 0)
+                  result)      
+      (let ((result (car
+              (-sort #'>
+                     (--map (day16/best-path-options valve-data it)
+                            (day16/sub-paths valve-data path-data))))))
+        result))))
 
 
 (defun day16/best-path (valve-data)
@@ -143,8 +161,7 @@ It turns out it can happen"
                            (make-day16-path :path '(:AA)
                                             :time 0
                                             :projected-flow 0
-                                            :remaining (day16/get-non-zero-flow-nodes valve-data)))
-  )
+                                            :remaining (day16/get-non-zero-flow-nodes valve-data))))
 
 
 (defun day16/part-1 (lines)
