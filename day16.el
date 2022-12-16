@@ -9,6 +9,8 @@
 
 (defconst day16/inf 1e6 "A distance large enough to be de-facto infinite for Dijkstra algorithm's sake")
 
+(defconst day16/total-time 30)
+
 (defstruct day16-valve "Valve definition"
            name
            flow
@@ -94,6 +96,56 @@
 It turns out it can happen"
   (--each (day16-valve-tunnels (advent/get valve-data node-name))
     (advent/assert (zerop (day16-valve-flow (advent/get valve-data it))))))
+
+
+
+(defun day16/move-cost (valve-data start-name end-name)
+  (let ((distances (day16/dijkstra valve-data start-name)))
+    (advent/get distances end-name)))
+
+(defun day16/move-outcome (valve-data time start-name end-name)
+  "Returns the finish time and outcome (valve throughput until 30) for the move"
+  (let ((cost (1+ (day16/move-cost valve-data start-name end-name))))
+    (list  (+ time cost)
+           (max 0 (* (day16-valve-flow (advent/get valve-data end-name))
+                     (- day16/total-time (+ time cost)))))))
+
+(defstruct day16-path "Path with time and total projected flow so far"
+           path
+           time
+           projected-flow
+           remaining)
+
+(defun day16/path-outcome (valve-data current-path-data end-valve-name)
+  (let ((previous-path (day16-path-path current-path-data))
+        (remaining (day16-path-remaining current-path-data)))
+   (seq-let (end-time new-projected-flow) (day16/move-outcome valve-data
+                                                          (day16-path-time current-path-data)
+                                                          (car (day16-path-path current-path-data))
+                                                          end-valve-name)
+     (make-day16-path :path (cons end-valve-name previous-path)
+                      :time end-time
+                      :projected-flow new-projected-flow
+                      :remaining (-remove-item end-valve-name remaining))))
+  )
+
+(defun day16/best-path-options (valve-data path-data)
+  (let* ((last-node (car (day16-path-path path-data)))
+         (distances (day16/dijkstra valve-data last-node)))
+    (--map (day16/path-outcome valve-data
+                               path-data
+                               it)
+           (day16-path-remaining path-data))))
+
+
+(defun day16/best-path (valve-data)
+  (day16/best-path-options valve-data
+                           (make-day16-path :path '(:AA)
+                                            :time 0
+                                            :projected-flow 0
+                                            :remaining (day16/get-non-zero-flow-nodes valve-data)))
+  )
+
 
 (defun day16/part-1 (lines)
   (error "Not yet implemented"))
