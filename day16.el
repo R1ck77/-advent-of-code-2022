@@ -22,7 +22,7 @@
                           line)))
     (seq-let (_ name flow raw-tunnels) matches
       (make-day16-valve :name (intern (s-append name ":"))
-                        :flow flow
+                        :flow (string-to-number flow)
                         :tunnels (day16/read-tunnels raw-tunnels)))))
 
 (defun day16/read-problem (lines)
@@ -84,6 +84,9 @@
                     (day16/dijkstra-update-distance! nodes distances (car node&distance) distance-candidate))))))
         (day16/dijkstra-remove-node! nodes current-node-name)))
     distances))
+
+(defun day16/get-non-zero-flow-nodes (valve-data)
+  (-map #'car (--filter (not (zerop (cdr it))) (advent/-map-hash valve-data (cons it-key (day16-valve-flow it-value))))))
 
 (defun day16/part-1 (lines)
   (error "Not yet implemented"))
