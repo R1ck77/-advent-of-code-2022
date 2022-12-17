@@ -208,30 +208,42 @@ It turns out it can happen"
 
 (defun day16/saving-result (result)
   (when (> result *best-sum-so-far*)
-    (print result)
+    (print (format "%d %s" *current-i* result))
     (sit-for 0)
     (setq *best-sum-so-far* result))
   *best-sum-so-far*)
 
+(defun day16/max-projected-value (valve-data path)
+  (let ((sum 0)
+        (time (- day16/reduced-time 2)))
+    (--each (-sort #'> (--map (day16-valve-flow (advent/get valve-data it)) path))
+      (setq sum (+ sum (max 0 (* time it))))
+      (setq time (- time 2)))
+    sum))
+
 (defun day16/best-paths (valve-data valves-a valves-b)
   (setq *cached-dijkstra* (make-hash-table))
   (day16/saving-result
-   (+ (progn
-        (setq *best-so-far* 0)
-        (day16/best-path-options valve-data
-                                 (make-day16-path :path '(:AA)
-                                                  :time 0
-                                                  :max-time day16/reduced-time
-                                                  :projected-flow 0
-                                                  :remaining valves-a)))
-      (progn
-        (setq *best-so-far* 0)
-        (day16/best-path-options valve-data
-                                 (make-day16-path :path '(:AA)
-                                                  :time 0
-                                                  :max-time day16/reduced-time
-                                                  :projected-flow 0
-                                                  :remaining valves-b))))))
+   (if (<= (+ (day16/max-projected-value valve-data valves-a)
+              (day16/max-projected-value valve-data valves-b))
+           *best-sum-so-far*)
+       *best-sum-so-far*
+    (+ (progn
+         (setq *best-so-far* 0)
+         (day16/best-path-options valve-data
+                                  (make-day16-path :path '(:AA)
+                                                   :time 0
+                                                   :max-time day16/reduced-time
+                                                   :projected-flow 0
+                                                   :remaining valves-a)))
+       (progn
+         (setq *best-so-far* 0)
+         (day16/best-path-options valve-data
+                                  (make-day16-path :path '(:AA)
+                                                   :time 0
+                                                   :max-time day16/reduced-time
+                                                   :projected-flow 0
+                                                   :remaining valves-b)))))))
 
 (defun day16/pad-to-bits (n list)
   (append (-repeat (- n (length list)) 0)
@@ -255,6 +267,7 @@ It turns out it can happen"
          (max-bit-value (expt 2 (length non-zero-nodes)))
          (max-value 0))
     (--dotimes max-bit-value
+      (setq *current-i* it)
       (seq-let (list-a list-b) (day16/split-list non-zero-nodes it)
         (setq max-value (max max-value
                              (day16/best-paths valve-data
