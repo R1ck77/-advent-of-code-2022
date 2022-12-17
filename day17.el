@@ -8,9 +8,10 @@
 (defconst day17/well-width 7)
 (defconst day17/well-slice (-repeat day17/well-width 0))
 (defconst day17/rows-padding 3)
+(defconst day17/max-tile-height 4)
 
 (defconst day17/debug-buffer "*Day17 well*")
-(setq day17/debug-print-moves t) ;; TODO/FIXME constants
+(setq day17/debug-print-moves nil) ;; TODO/FIXME constants
 
 (defconst day17/tiles-bits '([[1 1 1 1]]
                              [[0 1 0]
@@ -28,18 +29,18 @@
 
 ;; TODO/FIXME make constants everywhere
 (setq day17/tiles-masks '(((0 . 0) (0 . 1) (0 . 2) (0 . 3))
-                          ((2 . 1)
-                           (1 . 0) (1 . 1) (1 . 2)
-                           (0 . 1))
-                          ((2 . 0) (2 . 1) (2 . 2)
-                           (1 . 2)
-                           (0 . 2))
-                          ((3 . 0)
-                           (2 . 0)
-                           (1 . 0)
-                           (0 . 0))
-                          ((1 . 0) (1 . 1)
-                           (0 . 0) (0 . 1))))
+                          ((0 . 1)
+                           (-1 . 0) (-1 . 1) (-1 . 2)
+                           (-2 . 1))
+                          ((0 . 0) (0 . 1) (0 . 2)
+                           (-1 . 2)
+                           (-2 . 2))
+                          ((0 . 0)
+                           (-1 . 0)
+                           (-2 . 0)
+                           (-3 . 0))
+                          ((0 . 0) (0 . 1)
+                           (-1 . 0) (-1 . 1))))
 
 (setq day17/all-tiles (-cycle (--zip-with (list it other)
                                               day17/tiles-bits
@@ -72,7 +73,8 @@
 
 Assumes that the base is already trimmed to the height of the highest rock."
   (setf (day17-state-base state) (append (--map (apply #'vector it)
-                                                (-repeat day17/rows-padding day17/well-slice))
+                                                (-repeat (+ day17/max-tile-height day17/rows-padding)
+                                                         day17/well-slice))
                                          (day17-state-base state)))
   nil)
 
@@ -133,7 +135,7 @@ Assumes that the base is already trimmed to the height of the highest rock."
                             :tiles (rest tiles))
           (make-day17-tile :bits (caar tiles)
                            :mask (cadr (car tiles))
-                           :pos '(-1 . 2)))))
+                           :pos '(3 . 2)))))
 
 (defun day17/move-tile (tile dpos)  
   (let ((old-pos (day17-tile-pos tile))
@@ -153,7 +155,7 @@ Assumes that the base is already trimmed to the height of the highest rock."
 
 (defun day17/prune-empty-rows! (state)
   (let ((base (day17-state-base state)))
-    (setf (day17-state-base state) (--drop-while (equal it day17/well-slice) base))))
+    (setf (day17-state-base state) (--drop-while (equal (append it nil) day17/well-slice) base))))
 
 (defun day17/drop-tile! (state tile)
   "Modifies both the state and tile"
@@ -165,7 +167,6 @@ Assumes that the base is already trimmed to the height of the highest rock."
       (let ((moves (day17-state-moves state)))
         (setf (day17-state-moves state) (cdr moves))
         ;; Attempt to move the tile sideways: the first move is always permitted
-        (print (car moves))
         (let ((new-tile (day17/move-tile tile (cons 0 (car moves)))))
           (unless (and (not first-move) (day17/tile-clips-base? state new-tile))
             (setq tile new-tile)))
@@ -183,16 +184,24 @@ Assumes that the base is already trimmed to the height of the highest rock."
     (day17/drop-tile! next-state new-tile)
     next-state))
 
+(defun day17/count-rows (state)
+  (length (day17-state-base state)))
+
+(defun day17/evolve-simulation (state repetitions)  
+  (--dotimes repetitions
+    (setq state (day17/simulate-next-tile state))
+    (when day17/debug-print-moves 
+      (day17/debug-print-base state)))
+  state)
+
 (defun day17/part-1 (lines &optional repetitions)  
-  (-reduce-from (lambda (state index)
-                  (let ((result (day17/simulate-next-tile state)))
-                    (when day17/debug-print-moves 
-                      (day17/debug-print-base result))
-                    result))
-                 (day17/make-starting-state (day17/read-problem lines))
-                 (number-sequence 0 (1- (or repetitions 2022)))))
+  (day17/count-rows
+   (day17/evolve-simulation (day17/make-starting-state (day17/read-problem lines))
+                            (or repetitions 2022))))
 
 (defun day17/part-2 (lines)
-  (error "Not yet implemented"))
+    (day17/count-rows
+   (day17/evolve-simulation (day17/make-starting-state (day17/read-problem lines))
+                            (or repetitions 1000000000000))))
 
 (provide 'day17)
