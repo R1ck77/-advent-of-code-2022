@@ -222,28 +222,28 @@ It turns out it can happen"
     sum))
 
 (defun day16/best-paths (valve-data valves-a valves-b)
-  (setq *cached-dijkstra* (make-hash-table))
   (day16/saving-result
-   (if (<= (+ (day16/max-projected-value valve-data valves-a)
-              (day16/max-projected-value valve-data valves-b))
-           *best-sum-so-far*)
-       *best-sum-so-far*
-    (+ (progn
-         (setq *best-so-far* 0)
-         (day16/best-path-options valve-data
-                                  (make-day16-path :path '(:AA)
-                                                   :time 0
-                                                   :max-time day16/reduced-time
-                                                   :projected-flow 0
-                                                   :remaining valves-a)))
-       (progn
-         (setq *best-so-far* 0)
-         (day16/best-path-options valve-data
-                                  (make-day16-path :path '(:AA)
-                                                   :time 0
-                                                   :max-time day16/reduced-time
-                                                   :projected-flow 0
-                                                   :remaining valves-b)))))))
+   (let ((projected-a (day16/max-projected-value valve-data valves-a))
+         (projected-b (day16/max-projected-value valve-data valves-b)))
+     (if (<= (+ projected-a projected-b) *best-sum-so-far*)
+         *best-sum-so-far*
+       (setq *best-so-far* 0)
+       (let ((first-flow (day16/best-path-options valve-data
+                                                  (make-day16-path :path '(:AA)
+                                                                   :time 0
+                                                                   :max-time day16/reduced-time
+                                                                   :projected-flow 0
+                                                                   :remaining valves-a))))
+         (if (<= (+ first-flow projected-b) *best-sum-so-far*)
+             *best-so-far*
+           (setq *best-so-far* 0)
+           (let ((second-flow (day16/best-path-options valve-data
+                                                       (make-day16-path :path '(:AA)
+                                                                        :time 0
+                                                                        :max-time day16/reduced-time
+                                                                        :projected-flow 0
+                                                                        :remaining valves-b))))
+             (+ first-flow second-flow))))))))
 
 (defun day16/pad-to-bits (n list)
   (append (-repeat (- n (length list)) 0)
@@ -262,10 +262,14 @@ It turns out it can happen"
           (-map #'cdr (--filter (not (zerop (car it))) masked)))))
 
 (defun day16/best-combination (valve-data)
-  (setq *best-sum-so-far* 0)
+  (setq *cached-dijkstra* (make-hash-table))  
   (let* ((non-zero-nodes (day16/get-non-zero-flow-nodes valve-data))
          (max-bit-value (expt 2 (length non-zero-nodes)))
          (max-value 0))
+    (setq *current-i* 0)
+    (setq *best-sum-so-far* (day16/best-paths valve-data
+                                              (-take (/ (length non-zero-nodes) 2) non-zero-nodes)
+                                              (-drop (/ (length non-zero-nodes) 2) non-zero-nodes)))
     (--dotimes max-bit-value
       (setq *current-i* it)
       (seq-let (list-a list-b) (day16/split-list non-zero-nodes it)
