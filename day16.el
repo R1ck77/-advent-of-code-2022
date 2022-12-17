@@ -10,6 +10,7 @@
 (defconst day16/inf 1e6 "A distance large enough to be de-facto infinite for Dijkstra algorithm's sake")
 
 (defconst day16/total-time 30)
+(defconst day16/reduced-time 26)
 
 (defstruct day16-valve "Valve definition"
            name
@@ -32,9 +33,6 @@
     (--each (-map #'day16/read-valve lines)
       (advent/put valves (day16-valve-name it) it))
     valves))
-
-(setq evalves (day16/read-problem example))
-(setq pvalves (day16/read-problem problem))
 
 (defun day16/valves-comparator (distances valve-a valve-b)
   (let ((a-dist (advent/get distances valve-a))
@@ -206,7 +204,65 @@ It turns out it can happen"
 (defun day16/part-1 (lines)
   (day16/best-path (day16/read-problem lines)))
 
+(setq *best-sum-so-far* 0)
+
+(defun day16/saving-result (result)
+  (when (> result *best-sum-so-far*)
+    (print result)
+    (sit-for 0)
+    (setq *best-sum-so-far* result))
+  *best-sum-so-far*)
+
+(defun day16/best-paths (valve-data valves-a valves-b)
+  (setq *cached-dijkstra* (make-hash-table))
+  (day16/saving-result
+   (+ (progn
+        (setq *best-so-far* 0)
+        (day16/best-path-options valve-data
+                                 (make-day16-path :path '(:AA)
+                                                  :time 0
+                                                  :max-time day16/reduced-time
+                                                  :projected-flow 0
+                                                  :remaining valves-a)))
+      (progn
+        (setq *best-so-far* 0)
+        (day16/best-path-options valve-data
+                                 (make-day16-path :path '(:AA)
+                                                  :time 0
+                                                  :max-time day16/reduced-time
+                                                  :projected-flow 0
+                                                  :remaining valves-b))))))
+
+(defun day16/pad-to-bits (n list)
+  (append (-repeat (- n (length list)) 0)
+          list))
+
+(defun day16/int-to-binary-list (bits i)
+  (let ((res))
+    (while (not (= i 0))
+      (setq res (cons (if (= 1 (logand i 1)) 1 0) res))
+      (setq i (lsh i -1)))
+    (day16/pad-to-bits bits res)))
+
+(defun day16/split-list (list number)
+  (let ((masked (--zip-with (cons it other) (day16/int-to-binary-list (length list) number) list) ))
+    (list (-map #'cdr (--filter (zerop (car it)) masked))
+          (-map #'cdr (--filter (not (zerop (car it))) masked)))))
+
+(defun day16/best-combination (valve-data)
+  (setq *best-sum-so-far* 0)
+  (let* ((non-zero-nodes (day16/get-non-zero-flow-nodes valve-data))
+         (max-bit-value (expt 2 (length non-zero-nodes)))
+         (max-value 0))
+    (--dotimes max-bit-value
+      (seq-let (list-a list-b) (day16/split-list non-zero-nodes it)
+        (setq max-value (max max-value
+                             (day16/best-paths valve-data
+                                               list-a
+                                               list-b)))))
+    max-value))
+
 (defun day16/part-2 (lines)
-  (error "Not yet implemented"))
+  (day16/best-combination (day16/read-problem lines)))
 
 (provide 'day16)
