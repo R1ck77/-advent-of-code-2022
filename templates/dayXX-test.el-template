@@ -5,7 +5,7 @@
   (describe "part 1"
     (it "replicates the example"
       (expect (dayXX/part-1 (advent/read-problem-lines X :example))
-              :to-be 42 ))
+              :to-be 42))
     (xit "solves the problem"
       (expect (dayXX/part-1 (advent/read-problem-lines X :problem))
               :to-be 42)))
