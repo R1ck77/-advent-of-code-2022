@@ -116,39 +116,43 @@ It turns out it can happen"
   (let ((distances (day16/get-dijkstra valve-data start-name)))
     (advent/get distances end-name)))
 
-(defun day16/move-outcome (valve-data time start-name end-name)
+(defun day16/move-outcome (valve-data time start-name end-name max-time)
   "Returns the finish time and outcome (valve throughput until 30) for the move"
   (let ((cost (1+ (day16/move-cost valve-data start-name end-name))))
     (list  (+ time cost)
            (max 0 (* (day16-valve-flow (advent/get valve-data end-name))
-                     (- day16/total-time (+ time cost)))))))
+                     (- max-time (+ time cost)))))))
 
 (defstruct day16-path "Path with time and total projected flow so far"
            path
            time
+           max-time
            projected-flow
            remaining)
 
-(defun day16/max-projected-outcome (valve-data path time)  
+(defun day16/max-projected-outcome (valve-data path time max-time)  
   (let ((all-sorted-flows (-sort #'> (--map (day16-valve-flow (advent/get valve-data it))
                                             (day16-path-remaining path)))))
     (+ (day16-path-projected-flow path)
        (apply #'+ (--map (* (car it) (cdr it))
                          (--filter (> (car it) 0)
-                                   (--map-indexed (cons (- day16/total-time time (* (1+ it-index) 2))
+                                   (--map-indexed (cons (- max-time time (* (1+ it-index) 2))
                                                         it)
                                                   all-sorted-flows)))))))
 
 (defun day16/path-outcome (valve-data current-path-data end-valve-name)
   (let ((previous-path (day16-path-path current-path-data))
         (remaining (day16-path-remaining current-path-data))
-        (current-flow (day16-path-projected-flow current-path-data)))
+        (current-flow (day16-path-projected-flow current-path-data))
+        (max-time (day16-path-max-time current-path-data)))
    (seq-let (end-time new-projected-flow) (day16/move-outcome valve-data
                                                           (day16-path-time current-path-data)
                                                           (car (day16-path-path current-path-data))
-                                                          end-valve-name)
+                                                          end-valve-name
+                                                          max-time)
      (make-day16-path :path (cons end-valve-name previous-path)
                       :time end-time
+                      :max-time max-time
                       :projected-flow (+ new-projected-flow current-flow)
                       :remaining (-remove-item end-valve-name remaining)))))
 
@@ -168,11 +172,12 @@ It turns out it can happen"
   (let ((result (let* ((last-node (car (day16-path-path path-data)))
                        (distances (day16/get-dijkstra valve-data last-node))
                        (remaining (day16-path-remaining path-data))
-                       (time (day16-path-time path-data)))
+                       (time (day16-path-time path-data))
+                       (max-time (day16-path-max-time path-data)))
                   ;; I could probably add another condition for projected flow
-                  (if (or (>= time day16/total-time)
+                  (if (or (>= time max-time)
                           (not remaining)
-                          (and t (<= (day16/max-projected-outcome valve-data path-data time) *best-so-far*)))
+                          (and t (<= (day16/max-projected-outcome valve-data path-data time max-time) *best-so-far*)))
                       (let ((result (day16-path-projected-flow path-data)))
                         (comment
                           (print (format "Result: %s (Best: %s)" result *best-so-far*))
@@ -187,18 +192,19 @@ It turns out it can happen"
     *best-so-far*))
 
 
-(defun day16/best-path (valve-data &optional best-value)
-  (setq *best-so-far* (or best-value 0))
+(defun day16/best-path (valve-data)
+  (setq *best-so-far* 0)
   (setq *cached-dijkstra* (make-hash-table))
   (day16/best-path-options valve-data
                            (make-day16-path :path '(:AA)
                                             :time 0
+                                            :max-time day16/total-time
                                             :projected-flow 0
                                             :remaining (day16/get-non-zero-flow-nodes valve-data))))
 
 
-(defun day16/part-1 (lines &optional best-value)
-  (day16/best-path (day16/read-problem lines) best-value))
+(defun day16/part-1 (lines)
+  (day16/best-path (day16/read-problem lines)))
 
 (defun day16/part-2 (lines)
   (error "Not yet implemented"))
