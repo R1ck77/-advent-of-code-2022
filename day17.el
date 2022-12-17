@@ -6,40 +6,42 @@
 (defconst problem (advent/read-problem-text 17 :problem))
 
 (defconst day17/well-width 7)
-(defconst day17/well-slice (apply #'vector (-repeat day17/well-width 0)))
+(defconst day17/well-slice (-repeat day17/well-width 0))
 (defconst day17/rows-padding 3)
 
 (defconst day17/debug-buffer "*Day17 well*")
+(setq day17/debug-print-moves t) ;; TODO/FIXME constants
 
 (defconst day17/tiles-bits '([[1 1 1 1]]
-                  [[0 1 0]
-                   [1 1 1]
-                   [0 1 0]]
-                  [[0 0 1]
-                   [0 0 1]
-                   [1 1 1]]
-                  [[1]
-                   [1]
-                   [1]
-                   [1]]
-                  [[1 1]
-                   [1 1]]))
+                             [[0 1 0]
+                              [1 1 1]
+                              [0 1 0]]
+                             [[0 0 1]
+                              [0 0 1]
+                              [1 1 1]]
+                             [[1]
+                              [1]
+                              [1]
+                              [1]]
+                             [[1 1]
+                              [1 1]]))
 
-(defconst day17/tiles-masks '(((0 . 0) (0 . 0) (0 . 0) (0 . 0))
-                              ((0 . 1)
-                               (1 . 0) (1 . 1) (1 . 2)
-                               (2 . 1))
-                              ((0 . 0) (0 . 1) (0 . 2)
-                               (1 . 2)
-                               (2 . 2))
-                              ((0 . 0)
-                               (1 . 0)
-                               (2 . 0)
-                               (3 . 0))
-                              ((0 . 0) (0 . 1)
-                               (1 . 0) (1 . 1))))
+;; TODO/FIXME make constants everywhere
+(setq day17/tiles-masks '(((0 . 0) (0 . 1) (0 . 2) (0 . 3))
+                          ((2 . 1)
+                           (1 . 0) (1 . 1) (1 . 2)
+                           (0 . 1))
+                          ((2 . 0) (2 . 1) (2 . 2)
+                           (1 . 2)
+                           (0 . 2))
+                          ((3 . 0)
+                           (2 . 0)
+                           (1 . 0)
+                           (0 . 0))
+                          ((1 . 0) (1 . 1)
+                           (0 . 0) (0 . 1))))
 
-(defconst day17/all-tiles (-cycle (--zip-with (list it other)
+(setq day17/all-tiles (-cycle (--zip-with (list it other)
                                               day17/tiles-bits
                                               day17/tiles-masks)))
 
@@ -69,7 +71,9 @@
   "Create enough room to simulate the tile (it basically adds three new lines…)
 
 Assumes that the base is already trimmed to the height of the highest rock."
-  (setf (day17-state-base state) (append (-repeat day17/rows-padding day17/well-slice) (day17-state-base state)))
+  (setf (day17-state-base state) (append (--map (apply #'vector it)
+                                                (-repeat day17/rows-padding day17/well-slice))
+                                         (day17-state-base state)))
   nil)
 
 (defun day17/tile-out-of-well? (state tile)
@@ -102,23 +106,23 @@ Assumes that the base is already trimmed to the height of the highest rock."
   (or (day17/tile-out-of-well? state tile)
       (let ((base (day17-state-base state))
             (tile-pos (day17-tile-pos tile)))
-        (and (> (car tile-pos) (1- day17/rows-padding)) ; The tile dropped enough
+        (and (>= (car tile-pos) day17/rows-padding) ; The tile dropped enough
              (day17/-collides? state tile)))))
 
 (defun day17/debug-number-to-char (value)
   (if (zerop value)
       " "
-    "◼"))
+    "o"))
 
 (defun day17/debug-print-base (state)
   (let ((base (day17-state-base state)))
     (with-current-buffer  (get-buffer-create day17/debug-buffer)
       (erase-buffer)
-     (--each base
-       (insert (format "#%s#\n" (apply #'concat(-map #'day17/debug-number-to-char it)))))
-     (insert "#########")
-     (goto-char (point-min))
-     (display-buffer (current-buffer))))
+      (--each base
+        (insert (format "#%s#\n" (apply #'concat(-map #'day17/debug-number-to-char it)))))
+      (insert "#########")
+      (goto-char (point-min))
+      (display-buffer (current-buffer))))
   (sit-for 0)
   state)
 
@@ -155,20 +159,23 @@ Assumes that the base is already trimmed to the height of the highest rock."
   "Modifies both the state and tile"
   (day17/make-space-for-tile! state)
   (let ((collision)
-        (pos (day17-tile-pos tile)))
+        (pos (day17-tile-pos tile))
+        (first-move t))
     (while (not collision)
       (let ((moves (day17-state-moves state)))
         (setf (day17-state-moves state) (cdr moves))
-        ;; Attempt to move the tile sideways
+        ;; Attempt to move the tile sideways: the first move is always permitted
+        (print (car moves))
         (let ((new-tile (day17/move-tile tile (cons 0 (car moves)))))
-          (unless (day17/tile-clips-base? state new-tile)
+          (unless (and (not first-move) (day17/tile-clips-base? state new-tile))
             (setq tile new-tile)))
         ;; Attempt to move the tile down
         (let ((new-tile (day17/move-tile tile '(1 . 0))))
-          (if (not (day17/tile-clips-base? state new-tile))
+          (if (or first-move (not (day17/tile-clips-base? state new-tile)))
               (setq tile new-tile)
             (day17/embed-tile! state tile)
-            (setq collision t))))))
+            (setq collision t))))
+      (setq first-move nil)))
   (day17/prune-empty-rows! state))
 
 (defun day17/simulate-next-tile (state)
@@ -178,7 +185,10 @@ Assumes that the base is already trimmed to the height of the highest rock."
 
 (defun day17/part-1 (lines &optional repetitions)  
   (-reduce-from (lambda (state index)
-                  (day17/debug-print-base (day17/simulate-next-tile state)))
+                  (let ((result (day17/simulate-next-tile state)))
+                    (when day17/debug-print-moves 
+                      (day17/debug-print-base result))
+                    result))
                  (day17/make-starting-state (day17/read-problem lines))
                  (number-sequence 0 (1- (or repetitions 2022)))))
 
