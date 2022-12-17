@@ -270,8 +270,11 @@ It turns out it can happen"
     (setq *best-sum-so-far* (day16/best-paths valve-data
                                               (-take (/ (length non-zero-nodes) 2) non-zero-nodes)
                                               (-drop (/ (length non-zero-nodes) 2) non-zero-nodes)))
-    (--dotimes max-bit-value
+    (--dotimes (/ max-bit-value 2)
       (setq *current-i* it)
+      (when (zerop (mod it 1000))
+        (print "*")
+        (sit-for 0))
       (seq-let (list-a list-b) (day16/split-list non-zero-nodes it)
         (setq max-value (max max-value
                              (day16/best-paths valve-data
