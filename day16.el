@@ -203,7 +203,11 @@ It turns out it can happen"
            mate-pos
            time
            projected-flow
-           remaining)
+           remaining
+           ;; TODO/FIXME remove
+           debug-my-path
+           debug-mate-path
+           )
 
 ;;; TODO/FIXME todo: account for the missing time when computing the projected flow and end time
 (defun day16/move-outcome-with-elephant (valve-data time start-state end-name)
@@ -212,7 +216,8 @@ It turns out it can happen"
 Delays are accounted both in the cost and end time"
   (let ((start-node-name (car start-state))
         (delay (cdr start-state)))    
-   (let ((cost (+ delay (day16/move-cost valve-data start-node-name end-name) 1)))
+    (let* ((move-cost (day16/move-cost valve-data start-node-name end-name))
+          (cost (+ delay move-cost 1)))
      (list  (+ time cost)
             (max 0 (* (day16-valve-flow (advent/get valve-data end-name))
                       ;; accounts for the delay already above
@@ -250,13 +255,19 @@ Delays are accounted both in the cost and end time"
                                                 my-projected-flow
                                                 mate-projected-flow)
                              :remaining (-remove-item (cdr end-valve-names)
-                                                      (-remove-item (car end-valve-names) remaining)))))))
+                                                      (-remove-item (car end-valve-names) remaining))
+                             :debug-my-path (cons (car end-valve-names)
+                                                  (day16-duo-path-debug-my-path current-path-data))
+                             :debug-mate-path (cons (cdr end-valve-names)
+                                                    (day16-duo-path-debug-mate-path current-path-data)))))))
 
 (defun day16/sub-elephant-paths (valve-data path-data)
   (let ((remaining (day16-duo-path-remaining path-data)))
     (--map (day16/elephant-path-outcome valve-data path-data it)
            (identity ; TODO/FIXME sorting missing
-            (-table-flat (lambda (x y) (cons x y)) remaining remaining)))))
+
+            (--filter (not (eq (car it) (cdr it)))
+                      (-table-flat (lambda (x y) (cons x y)) remaining remaining))))))
 
 (defun day16/with-debug-print (result)
   (print (format "Result: %s (Best: %s)" result *best-so-far*))
@@ -264,6 +275,9 @@ Delays are accounted both in the cost and end time"
   result)
 
 (defun day16/saving-results (result)
+  ;;; TODO/FIXME bad bad bad
+  (if (> result *best-so-far*)
+      (setq *debug-best-instance-so-far* *current-instance*))
   (setq *best-so-far* (max result *best-so-far*))
   *best-so-far*)
 
@@ -277,7 +291,8 @@ Delays are accounted both in the cost and end time"
           (time (day16-duo-path-time path-data)))
      ;; Add the projected flow condition
      (if (or (>= time day16/reduced-time) (not remaining))
-         (day16/with-debug-print (day16-duo-path-projected-flow path-data))
+         ;;; TODO/FIXME o God
+         (day16/with-debug-print (day16-duo-path-projected-flow (setq *current-instance* path-data)))
        (car
         (-sort #'>
                (--map (day16/best-elephant-path-options valve-data it)
@@ -291,8 +306,27 @@ Delays are accounted both in the cost and end time"
                                     (make-day16-duo-path :pos '(:AA . 0)
                                                          :mate-pos '(:AA . 0)
                                                          :time 0
-                                                         :projected-flow 0                                                         
-                                                         :remaining (day16/get-non-zero-flow-nodes valve-data))))
+                                                         :projected-flow 0
+                                                         :remaining (day16/get-non-zero-flow-nodes valve-data)
+                                                         :debug-my-path '(:AA)
+                                                         :debug-mate-path '(:AA))))
+
+(defun day16/debug-evaluate-path (valve-data path)
+  (let ((total-flow 0)
+        (time 0))
+    (--each (-partition-in-steps 2 1 (reverse path))
+      (seq-let (start end) it
+        (let ((move-cost (1+ (advent/get (day16/get-dijkstra valve-data start) end)))
+              (flow (day16-valve-flow (advent/get valve-data end))))
+          (advent/assert (not (zerop flow)) (format "Found a 0 flow for node %s" end))
+          (setq time (+ time move-cost))
+          (setq total-flow (+ total-flow (* flow (max 0 (- day16/reduced-time time))))))))
+    total-flow))
+
+(defun day16/debug-evaluate-path-data (valve-data path-data)
+  (+ (day16/debug-evaluate-path valve-data (day16-duo-path-debug-my-path path-data))
+     (day16/debug-evaluate-path valve-data (day16-duo-path-debug-mate-path path-data))))
+
 (defun day16/part-2 (lines &optional start-best-value)
   (day16/best-elephant-path (day16/read-problem lines) start-best-value )
   )
