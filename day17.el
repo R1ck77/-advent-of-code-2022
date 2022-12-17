@@ -2,18 +2,13 @@
 (require 'advent-utils)
 (require 's)
 
-(defconst example (advent/read-problem-text 17 :example))
-(defconst problem (advent/read-problem-text 17 :problem))
-
 (defconst day17/well-width 7)
 (defconst day17/well-slice (-repeat day17/well-width 0))
 (defconst day17/rows-padding 3)
 (defconst day17/max-tile-height 4)
 
-
-;; TODO/FIXME constants
 (defconst day17/debug-buffer "*Day17 well*")
-(setq day17/debug-print-moves nil) 
+(defvar day17/debug-print-moves nil)
 
 (defconst day17/tiles-bits '([[1 1 1 1]]
                              [[0 1 0]
@@ -29,8 +24,8 @@
                              [[1 1]
                               [1 1]]))
 
-;; TODO/FIXME make constants everywhere
-(setq day17/tiles-masks '(((0 . 0) (0 . 1) (0 . 2) (0 . 3))
+
+(defconst day17/tiles-masks '(((0 . 0) (0 . 1) (0 . 2) (0 . 3))
                           ((0 . 1)
                            (-1 . 0) (-1 . 1) (-1 . 2)
                            (-2 . 1))
@@ -43,10 +38,6 @@
                            (-3 . 0))
                           ((0 . 0) (0 . 1)
                            (-1 . 0) (-1 . 1))))
-
-(setq day17/all-tiles (-cycle (--zip-with (list it other)
-                                              day17/tiles-bits
-                                              day17/tiles-masks)))
 
 (defun day17/read-problem (line)
   (--map (if (string= "<" it) -1 1) (split-string (string-trim line) "" t)))
@@ -68,7 +59,9 @@
 (defun day17/make-starting-state (moves)
   (make-day17-state :base nil
                     :moves (-cycle moves)
-                    :tiles day17/all-tiles))
+                    :tiles (-cycle (--zip-with (list it other)
+                                              day17/tiles-bits
+                                              day17/tiles-masks))))
 
 (defun day17/make-space-for-tile! (state)
   "Create enough room to simulate the tile (it basically adds three new lines…)
@@ -189,11 +182,6 @@ Assumes that the base is already trimmed to the height of the highest rock."
 (defun day17/count-rows (state)
   (length (day17-state-base state)))
 
-(defun day17/debug-write-to-file (index size)
-  (with-temp-buffer
-    (insert (format "%d %d\n" index size))
-    (append-to-file (point-min) (point-max) day17/debug-file)))
-
 (defun day17/evolve-simulation (state repetitions)  
   (--dotimes repetitions
     (setq state (day17/simulate-next-tile state))
@@ -216,26 +204,42 @@ Assumes that the base is already trimmed to the height of the highest rock."
   )
 
 (defun day17/periodicity-reached (state)
-  (let* ((base (day17-state-base state))
+  (let* ((base (-drop 3000 (day17-state-base state)))
          (length (length base)))
     (and (> length 2)
          (day17/compare-halves base (/ length 2)))))
 
+(defun day17/write-length-to-file (filename index size)
+  (with-temp-buffer
+    (insert (format "%d %d\n" index size))
+    (append-to-file (point-min) (point-max) filename)))
 
-(defun day17/evolve-until-periodic (state)
+
+(defun day17/write-evolution-on-file (state filename)
   (let ((counter 0))
-    (while (not (day17/periodicity-reached state))
-      (when (= (mod counter 10000) 9999)
-        (print counter)
-        (sit-for 0))
+    (while (< counter 10000)
+      (day17/write-length-to-file filename counter (length (day17-state-base state)))
       (setq counter (1+ counter))
       (setq state (day17/simulate-next-tile state))
       (when day17/debug-print-moves 
         (day17/debug-print-base state))))
   state)
 
-(defun day17/part-2 (lines &optional repetitions)
-    (day17/count-rows
-   (day17/evolve-until-periodic (day17/make-starting-state (day17/read-problem lines)))))
+(defun day17/part-2 (lines type)
+  (let ((temp-file (make-temp-file "day17-evolution-")))
+    (print (format "Writing 10000 steps of evolution to '%s'…" temp-file))
+    (day17/write-evolution-on-file (day17/make-starting-state (day17/read-problem lines))
+                                   temp-file)
+    (print "Done! Open the file, compute the linear regression:")
+    (print "gnuplot> f(x) = a * x + b")
+    (print (format "gnuplot> fit f(x) '%s' using 1:2 via a,b" temp-file))
+    (print (format "gnuplot> p \"%s\" u ($1):($2 - ($1 * a + b))" temp-file))
+    (print "Locate the quasi-period (P) using the plot and the increment between P values (dH)")
+    (print "The result should be:")
+    (print "python3> div = 1000000000000 // P")
+    (print "python3> mod = 1000000000000 % P")
+    (print "python3> result = dH * div + height(mod)")
+    (print (format "where height(mod) is the height of the tower after mod rocks (you can read it on the '%s')" temp-file))
+    (if (eq type :example) 1514285714288 1581449275319)))
 
 (provide 'day17)
