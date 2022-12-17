@@ -6,7 +6,7 @@
 (defconst problem (advent/read-problem-text 17 :problem))
 
 (defconst day17/well-width 7)
-(defconst day17/well-slice (-repeat day17/well-width 0))
+(defconst day17/well-slice (apply #'vector (-repeat day17/well-width 0)))
 (defconst day17/rows-padding 3)
 
 (defconst day17/debug-buffer "*Day17 well*")
@@ -65,24 +65,24 @@
                     :moves (-cycle moves)
                     :tiles day17/all-tiles))
 
-(defun day17/make-space-for-tile (state)
+(defun day17/make-space-for-tile! (state)
   "Create enough room to simulate the tile (it basically adds three new lines…)
 
 Assumes that the base is already trimmed to the height of the highest rock."
-  (make-day17-state :base (append (-repeat day17/rows-padding day17/well-slice) (day17-state-base state))
-                    :moves (day17-state-moves state)))
+  (setf (day17-state-base state) (append (-repeat day17/rows-padding day17/well-slice) (day17-state-base state)))
+  nil)
 
 (defun day17/tile-out-of-well? (state tile)
-  (let ((mask (day17-tile-mask tile))
+  (let ((bits (day17-tile-bits tile))
         (row&column (day17-tile-pos tile)))
-    (or (< (car row&column) 0)
-        (> (+ (length mask) (car row&column)) day17/well-width)
-        (>= (cdr row&column)
+    (or (< (cdr row&column) 0)
+        (> (+ (length (aref bits 0)) (cdr row&column)) day17/well-width)
+        (>= (car row&column)
             (length (day17-state-base state))))))
 
 (defun day17/-rock? (state pos)
   "Assumes that the coordinate is valid within the well"
-  (not (zerop (advent/grid-get (day17-state-base state) pos))))
+  (not (zerop (aref (elt (day17-state-base state) (car pos)) (cdr pos)))))
 
 (defun day17/-collides? (state tile)
   (let ((pos (day17-tile-pos tile))
@@ -90,21 +90,20 @@ Assumes that the base is already trimmed to the height of the highest rock."
         (base (day17-state-base state)))
     (let ((collision))
      ;; start from the bottom of the tile to make this a bit faster
-      (while (and (not collision) (car mask))
-        (let ((points (--map (cons (+ (car it) (car pos))
-                                   (+ (cdr it) (cdr pos)))
-                             (car mask))))
-          (while (and (not collision) (car points))
-            (setq collision (day17/-rock? state (car points)))
-            (setq points (rest points))))
-        (setq mask (rest mask)))
+      (while (and (not collision) mask)
+        (let* ((mask-el (car mask))
+              (next-point (cons (+ (car mask-el) (car pos))
+                                (+ (cdr mask-el) (cdr pos)))))
+          (setq collision (day17/-rock? state next-point))
+          (setq mask (rest mask))))
       collision)))
 
 (defun day17/tile-clips-base? (state tile)
-  (let ((base (day17-state-base state))
-        (tile-pos (day17-tile-pos tile)))
-    (and (> (car tile-pos) (1- day17/rows-padding)) ; The tile dropped enough
-         (day17/-collides? state tile))))
+  (or (day17/tile-out-of-well? state tile)
+      (let ((base (day17-state-base state))
+            (tile-pos (day17-tile-pos tile)))
+        (and (> (car tile-pos) (1- day17/rows-padding)) ; The tile dropped enough
+             (day17/-collides? state tile)))))
 
 (defun day17/debug-number-to-char (value)
   (if (zerop value)
@@ -132,12 +131,50 @@ Assumes that the base is already trimmed to the height of the highest rock."
                            :mask (cadr (car tiles))
                            :pos '(-1 . 2)))))
 
-(defun day17/drop-tile (state tile)
-  (let ((new-state (day17/make-space-for-tile state)))))
+(defun day17/move-tile (tile dpos)  
+  (let ((old-pos (day17-tile-pos tile))
+        (new-tile (copy-day17-tile tile)))
+       (setf (day17-tile-pos new-tile) (cons (+ (car old-pos) (car dpos))
+                                             (+ (cdr old-pos) (cdr dpos))))
+       new-tile))
+
+(defun day17/embed-tile! (state tile)
+  (let ((mask (day17-tile-mask tile))
+        (pos (day17-tile-pos tile))
+        (base (day17-state-base state)))
+    (--each (--map (cons (+ (car pos) (car it))
+                         (+ (cdr pos) (cdr it)))
+                   mask)
+      (aset (elt base (car it)) (cdr it) 1))))
+
+(defun day17/prune-empty-rows! (state)
+  (let ((base (day17-state-base state)))
+    (setf (day17-state-base state) (--drop-while (equal it day17/well-slice) base))))
+
+(defun day17/drop-tile! (state tile)
+  "Modifies both the state and tile"
+  (day17/make-space-for-tile! state)
+  (let ((collision)
+        (pos (day17-tile-pos tile)))
+    (while (not collision)
+      (let ((moves (day17-state-moves state)))
+        (setf (day17-state-moves state) (cdr moves))
+        ;; Attempt to move the tile sideways
+        (let ((new-tile (day17/move-tile tile (cons 0 (car moves)))))
+          (unless (day17/tile-clips-base? state new-tile)
+            (setq tile new-tile)))
+        ;; Attempt to move the tile down
+        (let ((new-tile (day17/move-tile tile '(1 . 0))))
+          (if (not (day17/tile-clips-base? state new-tile))
+              (setq tile new-tile)
+            (day17/embed-tile! state tile)
+            (setq collision t))))))
+  (day17/prune-empty-rows! state))
 
 (defun day17/simulate-next-tile (state)
   (seq-let (next-state new-tile) (day17/extract-tile state)
-    (day17/drop-tile next-state new-tile)))
+    (day17/drop-tile! next-state new-tile)
+    next-state))
 
 (defun day17/part-1 (lines &optional repetitions)  
   (-reduce-from (lambda (state index)
