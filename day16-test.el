@@ -1,7 +1,7 @@
 (require 'day16)
 (require 'buttercup)
 
-(describe "Day 16"
+(describe "--- Day 16: Proboscidea Volcanium ---"
   (describe "part 1"
     (it "replicates the example"
       (expect (day16/part-1 (advent/read-problem-lines 16 :example))
