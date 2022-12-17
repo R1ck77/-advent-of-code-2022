@@ -90,6 +90,16 @@
         (day16/dijkstra-remove-node! nodes current-node-name)))
     distances))
 
+(defvar *cached-dijkstra* nil)
+
+(defun day16/get-dijkstra (valve-data start-name)
+  (or (advent/get *cached-dijkstra* start-name)
+      (progn
+        (let ((new-dijkstra (day16/dijkstra valve-data start-name)))
+          (advent/put *cached-dijkstra* start-name new-dijkstra)
+          new-dijkstra))))
+
+
 (defun day16/get-non-zero-flow-nodes (valve-data)
   (-map #'car (--filter (not (zerop (cdr it))) (advent/-map-hash valve-data (cons it-key (day16-valve-flow it-value))))))
 
@@ -103,7 +113,7 @@ It turns out it can happen"
 
 
 (defun day16/move-cost (valve-data start-name end-name)
-  (let ((distances (day16/dijkstra valve-data start-name)))
+  (let ((distances (day16/get-dijkstra valve-data start-name)))
     (advent/get distances end-name)))
 
 (defun day16/move-outcome (valve-data time start-name end-name)
@@ -142,30 +152,6 @@ It turns out it can happen"
                       :projected-flow (+ new-projected-flow current-flow)
                       :remaining (-remove-item end-valve-name remaining)))))
 
-;;; TODO/FIXME remove
-;;;(defun swap (LIST el1 el2)
-;;;  "in LIST swap indices EL1 and EL2 in place"
-;;;  (let ((tmp (elt LIST el1)))
-;;;    (setf (elt LIST el1) (elt LIST el2))
-;;;    (setf (elt LIST el2) tmp)))
-;;;
-;;;;;;TODO/FIXME copy/paste
-;;;(defun shuffle (LIST)
-;;;  "Shuffle the elements in LIST.
-;;;shuffling is done in place."
-;;;  (loop for i in (reverse (number-sequence 1 (1- (length LIST))))
-;;;        do (let ((j (random (+ i 1))))
-;;;             (swap LIST i j)))
-;;;  LIST)
-;;;
-;;;;;; TODO/FIXME let's give it a go…
-;;;(defun day16/sub-paths (valve-data path-data)
-;;;  (--map (day16/path-outcome valve-data
-;;;                             path-data
-;;;                             it)
-;;;         (shuffle (apply #'list (day16-path-remaining path-data)))))
-;;;
-
 (defun day16/sub-paths (valve-data path-data)
   (--map (day16/path-outcome valve-data
                              path-data
@@ -180,7 +166,7 @@ It turns out it can happen"
 
 (defun day16/best-path-options (valve-data path-data)
   (let ((result (let* ((last-node (car (day16-path-path path-data)))
-                       (distances (day16/dijkstra valve-data last-node))
+                       (distances (day16/get-dijkstra valve-data last-node))
                        (remaining (day16-path-remaining path-data))
                        (time (day16-path-time path-data)))
                   ;; I could probably add another condition for projected flow
@@ -203,6 +189,7 @@ It turns out it can happen"
 
 (defun day16/best-path (valve-data &optional best-value)
   (setq *best-so-far* (or best-value 0))
+  (setq *cached-dijkstra* (make-hash-table))
   (day16/best-path-options valve-data
                            (make-day16-path :path '(:AA)
                                             :time 0
