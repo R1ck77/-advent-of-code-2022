@@ -10,8 +10,10 @@
 (defconst day17/rows-padding 3)
 (defconst day17/max-tile-height 4)
 
+
+;; TODO/FIXME constants
 (defconst day17/debug-buffer "*Day17 well*")
-(setq day17/debug-print-moves nil) ;; TODO/FIXME constants
+(setq day17/debug-print-moves nil) 
 
 (defconst day17/tiles-bits '([[1 1 1 1]]
                              [[0 1 0]
@@ -187,6 +189,11 @@ Assumes that the base is already trimmed to the height of the highest rock."
 (defun day17/count-rows (state)
   (length (day17-state-base state)))
 
+(defun day17/debug-write-to-file (index size)
+  (with-temp-buffer
+    (insert (format "%d %d\n" index size))
+    (append-to-file (point-min) (point-max) day17/debug-file)))
+
 (defun day17/evolve-simulation (state repetitions)  
   (--dotimes repetitions
     (setq state (day17/simulate-next-tile state))
@@ -199,9 +206,36 @@ Assumes that the base is already trimmed to the height of the highest rock."
    (day17/evolve-simulation (day17/make-starting-state (day17/read-problem lines))
                             (or repetitions 2022))))
 
-(defun day17/part-2 (lines)
+(defun day17/compare-halves (a pos)
+  (let ((different)
+        (counter 0))
+   (while (and (not different) (< counter pos))
+     (setq different (not (equal (elt a counter) (elt a (+ counter pos)))))
+     (setq counter (1+ counter)))
+   (not different))
+  )
+
+(defun day17/periodicity-reached (state)
+  (let* ((base (day17-state-base state))
+         (length (length base)))
+    (and (> length 2)
+         (day17/compare-halves base (/ length 2)))))
+
+
+(defun day17/evolve-until-periodic (state)
+  (let ((counter 0))
+    (while (not (day17/periodicity-reached state))
+      (when (= (mod counter 10000) 9999)
+        (print counter)
+        (sit-for 0))
+      (setq counter (1+ counter))
+      (setq state (day17/simulate-next-tile state))
+      (when day17/debug-print-moves 
+        (day17/debug-print-base state))))
+  state)
+
+(defun day17/part-2 (lines &optional repetitions)
     (day17/count-rows
-   (day17/evolve-simulation (day17/make-starting-state (day17/read-problem lines))
-                            (or repetitions 1000000000000))))
+   (day17/evolve-until-periodic (day17/make-starting-state (day17/read-problem lines)))))
 
 (provide 'day17)
