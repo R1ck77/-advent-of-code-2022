@@ -10,7 +10,6 @@
 (defconst day16/inf 1e6 "A distance large enough to be de-facto infinite for Dijkstra algorithm's sake")
 
 (defconst day16/total-time 30)
-(defconst day16/reduced-time 26)
 
 (defstruct day16-valve "Valve definition"
            name
@@ -101,17 +100,10 @@ It turns out it can happen"
   (--each (day16-valve-tunnels (advent/get valve-data node-name))
     (advent/assert (zerop (day16-valve-flow (advent/get valve-data it))))))
 
-(defvar *cached-dijkstra nil)
 
-(defun day16/get-dijkstra (valve-data start-name)
-  (or (advent/get *cached-dijkstra* start-name)
-      (progn
-        (let ((new-dijkstra (day16/dijkstra valve-data start-name)))
-          (advent/put *cached-dijkstra* start-name new-dijkstra)
-          new-dijkstra))))
 
 (defun day16/move-cost (valve-data start-name end-name)
-  (let ((distances (day16/get-dijkstra valve-data start-name)))
+  (let ((distances (day16/dijkstra valve-data start-name)))
     (advent/get distances end-name)))
 
 (defun day16/move-outcome (valve-data time start-name end-name)
@@ -150,6 +142,30 @@ It turns out it can happen"
                       :projected-flow (+ new-projected-flow current-flow)
                       :remaining (-remove-item end-valve-name remaining)))))
 
+;;; TODO/FIXME remove
+;;;(defun swap (LIST el1 el2)
+;;;  "in LIST swap indices EL1 and EL2 in place"
+;;;  (let ((tmp (elt LIST el1)))
+;;;    (setf (elt LIST el1) (elt LIST el2))
+;;;    (setf (elt LIST el2) tmp)))
+;;;
+;;;;;;TODO/FIXME copy/paste
+;;;(defun shuffle (LIST)
+;;;  "Shuffle the elements in LIST.
+;;;shuffling is done in place."
+;;;  (loop for i in (reverse (number-sequence 1 (1- (length LIST))))
+;;;        do (let ((j (random (+ i 1))))
+;;;             (swap LIST i j)))
+;;;  LIST)
+;;;
+;;;;;; TODO/FIXME let's give it a go…
+;;;(defun day16/sub-paths (valve-data path-data)
+;;;  (--map (day16/path-outcome valve-data
+;;;                             path-data
+;;;                             it)
+;;;         (shuffle (apply #'list (day16-path-remaining path-data)))))
+;;;
+
 (defun day16/sub-paths (valve-data path-data)
   (--map (day16/path-outcome valve-data
                              path-data
@@ -187,7 +203,6 @@ It turns out it can happen"
 
 (defun day16/best-path (valve-data &optional best-value)
   (setq *best-so-far* (or best-value 0))
-  (setq *cached-dijkstra* (make-hash-table))
   (day16/best-path-options valve-data
                            (make-day16-path :path '(:AA)
                                             :time 0
@@ -198,103 +213,7 @@ It turns out it can happen"
 (defun day16/part-1 (lines &optional best-value)
   (day16/best-path (day16/read-problem lines) best-value))
 
-(defstruct day16-duo-path "Path with time and total projected flow so far"
-           pos
-           mate-pos
-           time
-           projected-flow
-           remaining)
-
-;;; TODO/FIXME todo: account for the missing time when computing the projected flow and end time
-(defun day16/move-outcome-with-elephant (valve-data time start-state end-name)
-  "Returns the finish time and outcome (valve throughput until 26) for the move.
-
-Delays are accounted both in the cost and end time"
-  (let ((start-node-name (car start-state))
-        (delay (cdr start-state)))    
-   (let ((cost (+ delay (day16/move-cost valve-data start-node-name end-name) 1)))
-     (list  (+ time cost)
-            (max 0 (* (day16-valve-flow (advent/get valve-data end-name))
-                      ;; accounts for the delay already above
-                      (- day16/reduced-time (+ time cost))))))))
-
-(defun day16/move-outcomes-with-elephant (valve-data path-data start-states end-valve-names)
-  (let ((time (day16-duo-path-time path-data)))
-    (seq-let (end-time new-projected-flow)
-        (day16/move-outcome-with-elephant valve-data time
-                                          (car start-states)
-                                          (car end-valve-names))
-      (seq-let (end-mate-time new-mate-projected-flow)
-          (day16/move-outcome-with-elephant valve-data time
-                                            (cadr start-states)
-                                            (cdr end-valve-names))
-        (list end-time new-projected-flow end-mate-time new-mate-projected-flow)))))
-
-(defun day16/elephant-path-outcome (valve-data current-path-data end-valve-names)
-  (let ((previous-pos (day16-duo-path-pos current-path-data))
-        (previous-mate-pos (day16-duo-path-mate-pos current-path-data))
-        (remaining (day16-duo-path-remaining current-path-data))
-        (current-flow (day16-duo-path-projected-flow current-path-data)))
-    (seq-let (my-end-time my-projected-flow mate-end-time mate-projected-flow)
-        (day16/move-outcomes-with-elephant valve-data
-                                           current-path-data
-                                           (list previous-pos
-                                                 previous-mate-pos)
-                                           end-valve-names)
-      (let ((my-debt (max 0 (- my-end-time mate-end-time)))
-            (mate-debt (max 0 (- mate-end-time my-end-time))))
-        (make-day16-duo-path :pos (cons (car end-valve-names) my-debt)
-                             :mate-pos (cons (cdr end-valve-names) mate-debt)
-                             :time (max my-end-time mate-end-time) ;; TODO/FIXME or min?
-                             :projected-flow (+ current-flow
-                                                my-projected-flow
-                                                mate-projected-flow)
-                             :remaining (-remove-item (cdr end-valve-names)
-                                                      (-remove-item (car end-valve-names) remaining)))))))
-
-(defun day16/sub-elephant-paths (valve-data path-data)
-  (let ((remaining (day16-duo-path-remaining path-data)))
-    (--map (day16/elephant-path-outcome valve-data path-data it)
-           (identity ; TODO/FIXME sorting missing
-            (-table-flat (lambda (x y) (cons x y)) remaining remaining)))))
-
-(defun day16/with-debug-print (result)
-  (print (format "Result: %s (Best: %s)" result *best-so-far*))
-  (sit-for 0)
-  result)
-
-(defun day16/saving-results (result)
-  (setq *best-so-far* (max result *best-so-far*))
-  *best-so-far*)
-
-(defun day16/best-elephant-path-options (valve-data path-data)
-  (day16/saving-results
-   (let* ((my-state (day16-duo-path-pos path-data))
-          (mate-state (day16-duo-path-mate-pos path-data))
-          (my-distances (day16/get-dijkstra valve-data (car my-state)))
-          (mate-distances (day16/get-dijkstra valve-data (car mate-state)))
-          (remaining (day16-duo-path-remaining path-data))
-          (time (day16-duo-path-time path-data)))
-     ;; Add the projected flow condition
-     (if (or (>= time day16/reduced-time) (not remaining))
-         (day16/with-debug-print (day16-duo-path-projected-flow path-data))
-       (car
-        (-sort #'>
-               (--map (day16/best-elephant-path-options valve-data it)
-                      (day16/sub-elephant-paths valve-data path-data))))))))
-
-
-(defun day16/best-elephant-path (valve-data &optional start-best-value)
-  (setq *best-so-far* (or start-best-value 0))
-  (setq *cached-dijkstra* (make-hash-table))
-  (day16/best-elephant-path-options valve-data
-                                    (make-day16-duo-path :pos '(:AA . 0)
-                                                         :mate-pos '(:AA . 0)
-                                                         :time 0
-                                                         :projected-flow 0                                                         
-                                                         :remaining (day16/get-non-zero-flow-nodes valve-data))))
-(defun day16/part-2 (lines &optional start-best-value)
-  (day16/best-elephant-path (day16/read-problem lines) start-best-value )
-  )
+(defun day16/part-2 (lines)
+  (error "Not yet implemented"))
 
 (provide 'day16)
