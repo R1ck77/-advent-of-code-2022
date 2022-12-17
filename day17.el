@@ -6,6 +6,7 @@
 (defconst problem (advent/read-problem-text 17 :problem))
 
 (defconst day17/well-width 7)
+(defconst day17/well-slice (-repeat day17/well-width 0))
 
 (defconst day17/tiles '([[1 1 1 1]]
                   [[0 1 0]
@@ -28,6 +29,24 @@
   (let ((repetitions (1+ (/ (or count 2022) (length day17/tiles)))))
     (-take count (-flatten (-repeat repetitions day17/tiles)))))
 
+(defstruct day17-state "State of the simulation"
+           base
+           remaining-moves)
+
+(defun day17/make-starting-state (moves)
+  (make-day17-state :base nil
+                    :remaining-moves moves))
+
+(defun day17/make-space-for-tile (state next-tile)
+  "Create enough room to simulate the tile.
+
+Assumes that the base is trimmed to the height of the highest rock."
+  (let* ((tile-height (length next-tile))
+         (padding (+ 3 tile-height)))
+    (append (-repeat padding day17/well-slice) (day17-state-base state))
+    
+    
+    ))
 
 (defun day17/part-1 (lines)
   (error "Not yet implemented"))
