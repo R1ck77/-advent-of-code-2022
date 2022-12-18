@@ -1,9 +1,17 @@
 (require 'dash)
 (require 'advent-utils)
 (require 's)
+(require 'avl-tree)
 
 (defconst example (advent/read-problem-lines 18 :example))
 (defconst problem (advent/read-problem-lines 18 :problem))
+
+(defconst day18/displacements '((1 0 0)
+                                (-1 0 0)
+                                (0 1 0)
+                                (0 -1 0)
+                                (0 0 1)
+                                (0 0 -1)))
 
 (defun day18/read-line (line)
   (-map #'string-to-number (split-string line ",")))
@@ -40,7 +48,98 @@
     (- (* 6 (length rocks))
        (* 2 (day18/compute-all-adjacencies rocks)))))
 
+(defun day18/create-rocks-set (rocks)
+  (let ((dict (advent/table)))
+    (--each rocks
+      (advent/put dict it t))
+    dict))
+
+(defun day18/f--a-b (f a b)
+  (--map (funcall f (car it) (cdr it)) (-zip a b)))
+
+(defun day18/inside-block (corners a)
+  (seq-let (min max) corners
+   (seq-let (x y z) a
+     (and (>= x (1- (elt min 0))) (<= x (1+ (elt max 0)))
+          (>= y (1- (elt min 1))) (<= y (1+ (elt max 1)))
+          (>= z (1- (elt min 2))) (<= z (1+ (elt max 2)))))))
+
+;;;(defstruct day18-rocks "rocks data structure"  
+;;;           corners
+;;;           rocks)
+
+(defun day18/valid-move? (rocks-set corners a)
+  (and (day18/inside-block corners a)
+       (not (advent/get rocks-set a)))) ; TODO/FIXME probably overkill
+
+(defun day18/sum-lists (a b)
+  (--map (+ (car it) (cdr it)) (-zip a b)))
+
+(defun day18/valid-moves (rocks-set corners position)
+  (--filter (day18/valid-move? rocks-set corners it)
+            (--map (day18/sum-lists it position) day18/displacements)))
+
+
+(defun day18/get-corners (rocks)
+  (list (--reduce-from (day18/f--a-b #'min acc it) (car rocks) rocks)
+        (--reduce-from (day18/f--a-b #'max acc it) (car rocks) rocks)))
+
+(defun day18/hash-node (node)
+  (+ (elt node 0)
+     (* 1000 (elt node 1))
+     (* 1000000 (elt node 2))))
+
+(defun day18/nodes-comparator (node-a node-b)
+  (seq-let (a score-a) node-a
+    (seq-let (b score-b) node-b
+      (cond
+       ((and (not (eq score-a :inf)) (eq score-b :inf)) t)
+       ((and (eq score-a :inf) (not (eq score-b :inf))) nil)
+       ((eq score-a score-b) (< (day18/hash-node a)
+                                (day18/hash-node b)))))))
+
+(defun day18/create-nodes-set (corners rocks-set)
+  (let ((tree (avl-tree-create #'day18/nodes-comparator)))
+    (seq-let (min max) corners
+      (-each (number-sequence (1- (elt min 0)) (1+ (elt max 0)))
+        (lambda (x)
+          (-each (number-sequence (1- (elt min 1)) (1+ (elt max 1)))
+            (lambda (y)
+              (-each (number-sequence (1- (elt min 2)) (1+ (elt max 2)))
+                (lambda (z)
+                  (let ((candidate (list x y z)))
+                    (when (not (advent/get rocks-set candidate))
+                      (avl-tree-enter tree (list candidate :inf)))))))))))
+    (avl-tree-delete tree '((-1 -1 -1) :inf))
+    (avl-tree-enter tree '((-1 -1 -1) 0))
+    tree))
+
+(defun day18/next-move (nodes-set)
+  (let ((candidate (avl-tree-first nodes-set)))
+    (and (not (eq :inf (cadr candidate))) (car candidate))))
+
+(defun day18/dijkstra (rocks)
+  (let* ((corners (day18/get-corners rocks))
+        (rocks-set (day18/create-rocks-set rocks))
+        (nodes-set (day18/create-nodes-set corners rocks-set)))
+    (let ((current))
+      (while (setq current (day18/next-move nodes-set))
+        (let ((reachable (day18/valid-moves rocks-set corners current)))
+          (--each reachable
+            (when (avl-tree-member nodes-set (list it :inf))
+              (avl-tree-delete nodes-set (list it :inf))
+              (avl-tree-enter nodes-set (list it 0))))
+          (avl-tree-delete nodes-set (list current 0)))))
+    nodes-set))
+
+(defun day18/air-pockets (rocks)
+  (--filter (avl-tree-flatten (day18/dijkstra rocks))))
+
 (defun day18/part-2 (lines)
   (error "Not yet implemented"))
+
+(defconst e (day18/read-problem example))
+(defconst p (day18/read-problem problem))
+
 
 (provide 'day18)
