@@ -95,6 +95,34 @@
   "res = v1 - m * v2"
   (day19/op (lambda (a b) (- a (* m b))) v1 v2))
 
+(defun day19/build-cost (costs build)
+  (--reduce (day19/op #'+ acc it)
+            (list (day19/vop #'* (elt costs 0) (elt build 0))
+                  (day19/vop #'* (elt costs 1) (elt build 1))
+                  (day19/vop #'* (elt costs 2) (elt build 2))
+                  (day19/vop #'* (elt costs 3) (elt build 3)))))
+
+(defun day19/compute-new-resources (current gain costs)
+  (day19/op #'- (day19/op #'+ current gain) costs))
+
+(defun day19/evolve-with-f (state build-f)
+  (let* ((builds (funcall build-f state))
+         (current-robots (day19-state-robots state))
+         (current-resources (day19-state-resources state))
+         (bprint (day19-state-bprint state))
+         (costs (day19-bprint-costs bprint))
+         (now (day19-state-time state)))
+    (-map (lambda (build)
+            (let ((costs (day19/build-cost costs build))
+                  (gain current-robots))
+              (make-day19-state :resources (day19/compute-new-resources current-resources
+                                                                        gain
+                                                                        costs)
+                                :robots (day19/op #'+ current-robots build)
+                                :bprint bprint
+                                :time (1+ now))))
+          builds)))
+
 ;;; TODO/FIXME 5 nested cycles. What could go wrong?
 (defun day19/possible-builds (state)
   (let* ((resources (day19-state-resources state))
@@ -120,35 +148,25 @@
                                                   scenarios))))))))))))))
     scenarios))
 
-(defun day19/build-cost (costs build)
-  (--reduce (day19/op #'+ acc it)
-            (list (day19/vop #'* (elt costs 0) (elt build 0))
-                  (day19/vop #'* (elt costs 1) (elt build 1))
-                  (day19/vop #'* (elt costs 2) (elt build 2))
-                  (day19/vop #'* (elt costs 3) (elt build 3)))))
-
 ;; TODO/FIXME implement if needed
-(defun day19/evolve-resources (state)  
-  (let ((builds (day19/possible-builds state))
-        (current-robots (day19-state-robots state))
-        (current-resources (day19-state-resources state))
-        (bprint (day19-state-bprint state))
-        (costs (day19-bprint-costs bprint))
-        (now (day19-state-time state)))
-    (-map (lambda (build)
-            (let ((costs (day19/build-cost costs build))
-                  (gain current-robots))
-              (make-day19-state :resources (day19/compute-new-resources current-resources
-                                                                        gain
-                                                                        costs)
-                                :robots (day19/op #'+ current-robots build)
-                                :bprint bprint
-                                :time (1+ now))))
-           builds)))
+(defun day19/evolve (state)
+  (day19/evolve-with-f state #'day19/possible-builds))
+
+
+(defun day19/geo-robots-builds (state)
+  (let* ((resources (day19-state-resources state))
+         (costs (day19-bprint-costs (day19-state-bprint state)))
+         (geo-cost (elt costs 3))         
+        (scenarios))
+    (list (list 0 0 0 (day19/buildable-robots resources geo-cost)))))
 
 ;; TODO/FIXME implement if needed
 (defun day19/evolve-geode-robots (state)
-  (day19/evolve state))
+  (day19/evolve-with-f state #'day19/geo-robots-builds))
+
+;; TODO/FIXME implement if needed
+(defun day19/evolve-resources (state)
+    (day19/evolve-with-f state (lambda (_) '((0 0 0 0)))))
 
 (defun day19/next-scenarios (state)
   "Compute all possibile evolutions of the resources"
@@ -162,6 +180,17 @@
      (2 (day19/evolve-geode-robots state))
      ;; Anything goes
      (t (day19/evolve state)))))
+
+(defun day19/compute-quality (state)
+  (if (= (day19-state-time state) day19/total-time )
+      (let ((result (elt (day19-state-resources state) day19/geo-index)))
+        (print (format "Robots: %s Resources: %s Result: %s"
+                       (day19-state-robots state)
+                       (day19-state-resources state)
+                       result))
+        (sit-for 0)
+        result)
+    (apply #'max (-map #'day19/compute-quality (day19/next-scenarios state)))))
 
 (defun day19/read-problem (lines)
   (-map #'day19/read-blueprint lines))
