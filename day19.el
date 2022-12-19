@@ -7,6 +7,11 @@
 
 (defconst day19/total-time 24)
 
+(defconst day19/ore-index 0)
+(defconst day19/clay-index 1)
+(defconst day19/obs-index 2)
+(defconst day19/geo-index 3)
+
 (defstruct day19-bprint "Blueprint description"
   id costs)
 
@@ -65,16 +70,71 @@
   (--map (funcall f (car it) (cdr it)) (-zip v1 v2)))
 
 (defstruct day19-state "Simulation state"
-  resources
-  robots
-  bprint
-  time)
+           resources
+           robots
+           bprint
+           time)
 
 (defun day19/create-starting-state (bprint)
   (make-day19-state :time 0
                     :bprint bprint
                     :resources '(0 0 0 0)
                     :robots '(1 0 0 0)))
+
+(defun day19/buildable-robots (resources cost)
+  (apply #'min (day19/op #'/ resources cost)))
+
+(defun day19/sub-mul (v1 v2 m)
+  "res = v1 - m * v2"
+  (day19/op (lambda (a b) (- a (* m b))) v1 v2))
+
+(defun day19/get-cost (state index)
+  (elt (day19-bprint-costs (day19-state-bprint state)) index))
+
+;;; TODO/FIXME 5 nested cycles. What could go wrong?
+(defun day19/possible-builds (state)
+  (let ((resources (day19-state-resources state))
+        (costs (day19-bprint-costs (day19-state-bprint state) costs))
+        (scenarios))
+    (-dotimes (day19/buildable-robots resources (elt costs day19/geo-index))
+      (lambda (geo-robots)
+        (let ((resources (day19/sub-mul resources (elt costs day19/geo-index))))
+          (-dotimes (day19/buildable-robots resources (elt costs day19/obs-index))
+            (lambda (obs-robots)
+              (let ((resources (day19/sub-mul resources (elt costs day19/obs-index)))))
+              (-dotimes (day19/buildable-robots resources (elt costs day19/clay-index))
+                (lambda (clay-robots)
+                  (let ((resources (day19/sub-mul resources (elt costs day19/clay-index)))))
+                  (-dotimes (day19/buildable-robots resources (elt costs day19/ore-index))
+                    (lambda (ore-robots)
+                      (let ((resources (day19/sub-mul resources (elt costs day19/ore-index))))
+                        (setq scenarios (cons (list ore-robots clay-robots obs-robots geo-robots) scenarios))))))))))))))
+
+(defun day19/evolve (state)
+
+  
+  )
+
+;; TODO/FIXME implement if needed
+(defun day19/evolve-resources (state)
+  (day19/evolve state))
+
+;; TODO/FIXME implement if needed
+(defun day19/evolve-geode-robots (state)
+  (day19/evolve state))
+
+(defun day19/next-scenarios (state)
+  "Compute all possibile evolutions of the resources. Don't increment the time"
+  (let ((now (day19-state-time state)))
+    (case (- day19/total-time now)
+     ;; You messed something up
+     (0 (error "Overdue simulation"))
+     ;; No time/reason to make more robots: just evolve the resources
+     (1 (day19/evolve-resources state))
+     ;; No time/reason to create anything but geode extraction robots
+     (2 (day19/evolve-geode-robots state))
+     ;; Anything goes
+     (t (day19/evolve state)))))
 
 (defun day19/read-problem (lines)
   (-map #'day19/read-blueprint lines))
