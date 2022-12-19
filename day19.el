@@ -69,6 +69,9 @@
 (defun day19/op (f v1 v2)
   (--map (funcall f (car it) (cdr it)) (-zip v1 v2)))
 
+(defun day19/vop (f v m)
+  (--map (funcall f it m) v))
+
 (defstruct day19-state "Simulation state"
            resources
            robots
@@ -82,49 +85,73 @@
                     :robots '(1 0 0 0)))
 
 (defun day19/buildable-robots (resources cost)
-  (apply #'min (day19/op #'/ resources cost)))
+  (apply #'min (day19/op (lambda (a b)
+                           (if (zerop b)
+                               most-positive-fixnum
+                             (/ a b)))
+                         resources cost)))
 
 (defun day19/sub-mul (v1 v2 m)
   "res = v1 - m * v2"
   (day19/op (lambda (a b) (- a (* m b))) v1 v2))
 
-(defun day19/get-cost (state index)
-  (elt (day19-bprint-costs (day19-state-bprint state)) index))
-
 ;;; TODO/FIXME 5 nested cycles. What could go wrong?
 (defun day19/possible-builds (state)
-  (let ((resources (day19-state-resources state))
-        (costs (day19-bprint-costs (day19-state-bprint state) costs))
+  (let* ((resources (day19-state-resources state))
+         (costs (day19-bprint-costs (day19-state-bprint state)))
+         (ore-cost (elt costs 0))
+         (clay-cost (elt costs 1))
+         (obs-cost (elt costs 2))
+         (geo-cost (elt costs 3))         
         (scenarios))
-    (-dotimes (day19/buildable-robots resources (elt costs day19/geo-index))
+    (-each (number-sequence 0 (day19/buildable-robots resources geo-cost))
       (lambda (geo-robots)
-        (let ((resources (day19/sub-mul resources (elt costs day19/geo-index))))
-          (-dotimes (day19/buildable-robots resources (elt costs day19/obs-index))
+        (let ((resources (day19/sub-mul resources geo-cost geo-robots)))
+          (-each (number-sequence 0 (day19/buildable-robots resources obs-cost))
             (lambda (obs-robots)
-              (let ((resources (day19/sub-mul resources (elt costs day19/obs-index)))))
-              (-dotimes (day19/buildable-robots resources (elt costs day19/clay-index))
-                (lambda (clay-robots)
-                  (let ((resources (day19/sub-mul resources (elt costs day19/clay-index)))))
-                  (-dotimes (day19/buildable-robots resources (elt costs day19/ore-index))
-                    (lambda (ore-robots)
-                      (let ((resources (day19/sub-mul resources (elt costs day19/ore-index))))
-                        (setq scenarios (cons (list ore-robots clay-robots obs-robots geo-robots) scenarios))))))))))))))
+              (let ((resources (day19/sub-mul resources obs-cost obs-robots)))
+                (-each (number-sequence 0 (day19/buildable-robots resources clay-cost))
+                  (lambda (clay-robots)
+                    (let ((resources (day19/sub-mul resources clay-cost clay-robots)))
+                      (-each (number-sequence 0 (day19/buildable-robots resources ore-cost))
+                        (lambda (ore-robots)
+                          (let ((resources (day19/sub-mul resources ore-cost ore-robots)))
+                            (setq scenarios (cons (list ore-robots clay-robots obs-robots geo-robots)
+                                                  scenarios))))))))))))))
+    scenarios))
 
-(defun day19/evolve (state)
-
-  
-  )
+(defun day19/build-cost (costs build)
+  (--reduce (day19/op #'+ acc it)
+            (list (day19/vop #'* (elt costs 0) (elt build 0))
+                  (day19/vop #'* (elt costs 1) (elt build 1))
+                  (day19/vop #'* (elt costs 2) (elt build 2))
+                  (day19/vop #'* (elt costs 3) (elt build 3)))))
 
 ;; TODO/FIXME implement if needed
-(defun day19/evolve-resources (state)
-  (day19/evolve state))
+(defun day19/evolve-resources (state)  
+  (let ((builds (day19/possible-builds state))
+        (current-robots (day19-state-robots state))
+        (current-resources (day19-state-resources state))
+        (bprint (day19-state-bprint state))
+        (costs (day19-bprint-costs bprint))
+        (now (day19-state-time state)))
+    (-map (lambda (build)
+            (let ((costs (day19/build-cost costs build))
+                  (gain current-robots))
+              (make-day19-state :resources (day19/compute-new-resources current-resources
+                                                                        gain
+                                                                        costs)
+                                :robots (day19/op #'+ current-robots build)
+                                :bprint bprint
+                                :time (1+ now))))
+           builds)))
 
 ;; TODO/FIXME implement if needed
 (defun day19/evolve-geode-robots (state)
   (day19/evolve state))
 
 (defun day19/next-scenarios (state)
-  "Compute all possibile evolutions of the resources. Don't increment the time"
+  "Compute all possibile evolutions of the resources"
   (let ((now (day19-state-time state)))
     (case (- day19/total-time now)
      ;; You messed something up
