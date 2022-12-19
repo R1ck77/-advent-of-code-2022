@@ -203,6 +203,9 @@
         result)
     (apply #'max (-map #'day19/compute-quality (day19/next-scenarios state)))))
 
+(defun day19/compute-blueprint-quality (bprint)
+  (day19/compute-quality (day19/create-starting-state bprint)))
+
 (defun day19/read-problem (lines)
   (-map #'day19/read-blueprint lines))
 
