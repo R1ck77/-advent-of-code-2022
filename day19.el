@@ -131,8 +131,11 @@
          (clay-cost (elt costs 1))
          (obs-cost (elt costs 2))
          (geo-cost (elt costs 3))         
-        (scenarios))
-    (-each (number-sequence 0 (day19/buildable-robots resources geo-cost))
+         (scenarios))
+    ;; I'm assuming the maximum number of geode robots is always the best one
+    ;; TODO/FIXME is it true, though?
+    (-each (list (day19/buildable-robots resources geo-cost))
+     ;-each (number-sequence 0 (day19/buildable-robots resources geo-cost))
       (lambda (geo-robots)
         (let ((resources (day19/sub-mul resources geo-cost geo-robots)))
           (-each (number-sequence 0 (day19/buildable-robots resources obs-cost))
@@ -181,14 +184,22 @@
      ;; Anything goes
      (t (day19/evolve state)))))
 
+(setq *best-result* 0)
+
 (defun day19/compute-quality (state)
   (if (= (day19-state-time state) day19/total-time )
       (let ((result (elt (day19-state-resources state) day19/geo-index)))
-        (print (format "Robots: %s Resources: %s Result: %s"
-                       (day19-state-robots state)
-                       (day19-state-resources state)
-                       result))
-        (sit-for 0)
+        (when (> result *best-result*)
+          (setq *best-result* result)
+          (print (format "New best: %s" *best-result*))
+          (sit-for 0))
+        (comment 
+         (progn 
+           (print (format "Robots: %s Resources: %s Result: %s"
+                          (day19-state-robots state)
+                          (day19-state-resources state)
+                          result))
+           (sit-for 0)))
         result)
     (apply #'max (-map #'day19/compute-quality (day19/next-scenarios state)))))
 
