@@ -3,14 +3,10 @@
 (require 'advent-utils)
 (require 's)
 
-(defconst example (advent/read-problem-lines 20 :example))
-(defconst problem (advent/read-problem-lines 20 :problem))
+(defconst day20/decryption-key 811589153)
 
 (defun day20/read-problem (lines)
   (-map #'string-to-number lines))
-
-(setq e (day20/read-problem example))
-(setq p (day20/read-problem problem))
 
 (defun day20/shift (list index steps)
   "Shift the values of the list at index for 'steps' posisionts.
@@ -65,7 +61,15 @@ The value of the list at position x is computed with get-value-f(x)"
     (day20/get-code (day20-data-list mixed-list)
                     (lambda (x) (elt (day20-data-values mixed-list) x)))))
 
+(defun day20/multiple-mix-list (list-data)
+  (--dotimes 10
+    (setq list-data (day20/mix-list list-data)))
+  list-data)
+
 (defun day20/part-2 (lines)
-  (error "Not yet implemented"))
+  (let* ((decrypted-list (--map (* day20/decryption-key it) (day20/read-problem lines)))
+         (mixed-list (day20/multiple-mix-list (day20/create-list-data decrypted-list))))
+    (day20/get-code (day20-data-list mixed-list)
+                    (lambda (x) (elt (day20-data-values mixed-list) x)))))
 
 (provide 'day20)
