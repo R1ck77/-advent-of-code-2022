@@ -10,6 +10,15 @@
   "Important (and missed…) enough to warrant a global-like name"
   nil)
 
+(defmacro if-present (f arg &rest args)
+  "Executes (f (cons arg args)) if arg is not nil.
+
+If arg is nil, returns nil without evaluating the rest of the arguments "
+  (declare (indent 1))
+  (let ((tempvar (make-symbol "max")))
+    `(if-let ((,tempvar ,arg))
+         (,f ,tempvar ,@args))))
+
 (defmacro advent/assert (condition &optional message)
   "Not present for some reason"
   `(unless ,condition (error (or ,message "Assertion failed"))))
