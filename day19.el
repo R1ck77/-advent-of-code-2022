@@ -157,48 +157,32 @@
            (--filter (cdr it)           ;discard invalid choices
                      (--map-indexed (cons it-index it) choices-list)))))
 
-(defun day19/conditional-obsidian-choices (bprint state)
-  (list
-   ;; time for obsidian if I build an ore robot first
-   (if-present (day19/jump-state-to-construction bprint state day19/ore-index)
-    (day19/jump-state-to-construction bprint it day19/obs-index))
-   ;; time for obsidian robot if I build a clay robot first 
-   (if-present (day19/jump-state-to-construction bprint state day19/clay-index)
-     (day19/jump-state-to-construction bprint it day19/obs-index))
-   ;; time for obsidian robot if I just build it
-   (day19/jump-state-to-construction bprint state day19/obs-index)
-   ;; time for a geode  
-   nil))
+(defun day19/score-state (state)
+  "Returns the most valuable state"
+  (let ((final-state (day19/evolve-state-resources-to-end state)))
+    ;; TODO/FIXME shady way to score the various states
+    (apply #'+
+           (--map (* (car it) (cdr it))
+                  (-zip (day19-state-resources final-state)
+                        '(1 1000 1000000 1000000000))))))
 
-(defun day19/best-obsidian-choice (bprint state)
-  (day19/index-of-best-choice (day19/conditional-obsidian-choices bprint state)))
+(defun day19/gradient-step (bprint state)
+  (car
+   (--sort (> (day19/score-state it)
+              (day19/score-state other))
+           (--filter it
+                     ;; TODO/FIXME use the variables
+                     (list (day19/jump-state-to-construction bprint state day19/ore-index)
+                           (day19/jump-state-to-construction bprint state day19/clay-index)
+                           (day19/jump-state-to-construction bprint state day19/obs-index)
+                           (day19/jump-state-to-construction bprint state day19/geo-index))))))
 
-(defun day19/conditional-geode-choices (bprint state)
-  (list
-   ;; time for geode robot if I build an ore robot first
-   (if-present (day19/jump-state-to-construction bprint state day19/ore-index)
-       (day19/jump-state-to-construction bprint it day19/geo-index))
-   ;; time for geode robot if I build a clay robot first (inconsequential)
-   nil
-   ;; time for geode robot if I build an obsidian robot first
-   (if-present (cdr (day19/best-obsidian-choice bprint state))
-     (day19/jump-state-to-construction bprint it day19/geo-index))
-   ;; time for a geode robot if I just build it
-   (day19/jump-state-to-construction bprint state day19/geo-index)))
 
-(defun day19/best-geode-choice (bprint state)
-  (day19/index-of-best-choice (day19/conditional-geode-choices bprint state)))
-
-(defun day19/next-decision (bprint state)
-  (if-let ((choice&geode-state (day19/best-geode-choice bprint state)))
-      (if (= (car choice&geode-state) day19/obs-index)
-          ;; if the best course of action is for the obsidiean, pick the best way to reach it!
-          (day19/jump-state-to-construction bprint state (car (day19/best-obsidian-choice bprint state)))
-        ;; otherwise just build whatever
-      (day19/jump-state-to-construction bprint state (car choice&geode-state)))
-    (if-let ((choice&obsidian-state (day19/best-obsidian-choice bprint state)))
-        (day19/jump-state-to-construction bprint state (car choice&obsidian-state))
-      (day19/evolve-state-resources-to-end state))))
+(defun day19/gradient (bprint state)
+  (let ((candidate)))
+  (while (setq candidate (day19/gradient-step bprint state))
+    (setq state candidate))
+  state)
 
 (defun day19/evolve-blueprint (bprint)
   (let ((states (list (day19/create-starting-state))))
