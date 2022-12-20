@@ -125,6 +125,13 @@
                           (day19-state-resources state)
                           (day19-state-robots state)))
 
+(defun day19/evolve-state-resources-to-end (state)
+  (let ((time-resources-evolution (car (last (day19/evolve-state-resources state)))))
+    (advent/assert (= (car time-resources-evolution) day19/total-time) "Invalid end time?")
+    (make-day19-state :resources (cadr time-resources-evolution)
+                      :robots (day19-state-robots state)
+                      :time (car time-resources-evolution))))
+
 
 (defun day19/eta-for-robot (times-resources cost)
   "ETA for having the robot built (includes building time)"
@@ -143,6 +150,58 @@
                             :robots (-update-at robot-index #'1+ (day19-state-robots state))
                             :time (car expected-deadline))))))
 
+(defun day19/index-of-best-choice (choices-list)
+    (car                                ;take the first
+     (--sort (< (day19-state-time (cdr it))
+                (day19-state-time (cdr other)))     ;sort the remaining ones
+           (--filter (cdr it)           ;discard invalid choices
+                     (--map-indexed (cons it-index it) choices-list)))))
+
+(defun day19/conditional-obsidian-choices (bprint state)
+  (list
+   ;; time for obsidian if I build an ore robot first
+   (if-present (day19/jump-state-to-construction bprint state day19/ore-index)
+    (day19/jump-state-to-construction bprint it day19/obs-index))
+   ;; time for obsidian robot if I build a clay robot first 
+   (if-present (day19/jump-state-to-construction bprint state day19/clay-index)
+     (day19/jump-state-to-construction bprint it day19/obs-index))
+   ;; time for obsidian robot if I just build it
+   (day19/jump-state-to-construction bprint state day19/obs-index)
+   ;; time for a geode  
+   (day19/jump-state-to-construction bprint state day19/geo-index)))
+
+(defun day19/best-obsidian-choice (bprint state)
+  (day19/index-of-best-choice (day19/conditional-obsidian-choices bprint state)))
+
+(defun day19/conditional-geode-choices (bprint state)
+  (list
+   ;; time for geode robot if I build an ore robot first
+   (if-present (day19/jump-state-to-construction bprint state day19/ore-index)
+       (day19/jump-state-to-construction bprint it day19/geo-index))
+   ;; time for geode robot if I build a clay robot first (inconsequential)
+   nil
+   ;; time for geode robot if I build an obsidian robot first
+   (if-present (day19/jump-state-to-construction bprint state day19/obs-index)     
+     (day19/jump-state-to-construction bprint it day19/geo-index))
+   ;; time for a geode robot if I just build it
+   (day19/jump-state-to-construction bprint state day19/geo-index)))
+
+(defun day19/best-geode-choice (bprint state)
+  (day19/index-of-best-choice (day19/conditional-geode-choices bprint state)))
+
+
+(defun day19/next-decision (bprint state)
+  (if-let ((choice&geode-state (day19/best-geode-choice bprint state)))
+      (day19/jump-state-to-construction bprint state (car choice&geode-state))
+    (if-let ((choice&obsidian-state (day19/best-obsidian-choice bprint state)))
+        (day19/jump-state-to-construction bprint state (car choice&obsidian-state))
+      (day19/evolve-state-resources-to-end state))))
+
+(defun day19/evolve-blueprint (bprint)
+  (let ((states (list (day19/create-starting-state))))
+    (while (/= (day19-state-time (car states)) day19/total-time)
+      (setq states (cons (day19/next-decision bprint (car states)) states)))
+    (nreverse states)))
 
 (defun day19/compute-blueprint-quality (bprint)
   (setq *best-result* 0)
