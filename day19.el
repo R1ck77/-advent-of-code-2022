@@ -168,7 +168,7 @@
    ;; time for obsidian robot if I just build it
    (day19/jump-state-to-construction bprint state day19/obs-index)
    ;; time for a geode  
-   (day19/jump-state-to-construction bprint state day19/geo-index)))
+   nil))
 
 (defun day19/best-obsidian-choice (bprint state)
   (day19/index-of-best-choice (day19/conditional-obsidian-choices bprint state)))
@@ -181,14 +181,13 @@
    ;; time for geode robot if I build a clay robot first (inconsequential)
    nil
    ;; time for geode robot if I build an obsidian robot first
-   (if-present (day19/jump-state-to-construction bprint state day19/obs-index)     
+   (if-present (cdr (day19/best-obsidian-choice bprint state))
      (day19/jump-state-to-construction bprint it day19/geo-index))
    ;; time for a geode robot if I just build it
    (day19/jump-state-to-construction bprint state day19/geo-index)))
 
 (defun day19/best-geode-choice (bprint state)
   (day19/index-of-best-choice (day19/conditional-geode-choices bprint state)))
-
 
 (defun day19/next-decision (bprint state)
   (if-let ((choice&geode-state (day19/best-geode-choice bprint state)))
