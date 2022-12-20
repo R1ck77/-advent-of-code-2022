@@ -11,6 +11,12 @@
 (setq e (day20/read-problem example))
 (setq p (day20/read-problem problem))
 
+(defun day20/shift (list index steps)
+  (let ((new-index (mod (+ steps index) (1- (length list)))))
+    (when (and (< steps 0) (zerop new-index))
+      (setq new-index (1- (length list))))
+    (-insert-at new-index (elt list index) (-remove-at index list))))
+
 (defun day20/part-1 (lines)
   (error "Not yet implemented"))
 
