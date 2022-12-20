@@ -152,14 +152,19 @@
 (defun day19/add-block (blocks index)
   (-replace-at index t blocks))
 
-;; TODO/FIXME not sure if building a geode robot is mandatory, I'll play it safe for now
 (defun day19/possible-evolutions (state)
   "Returns all possible developments of the current state"
   (let ((buildable (day19/get-buildable-robots state))
-        (current-blocks (day19-state-blocks state)))    
+        (current-blocks (day19-state-blocks state)))
+    (advent/assert (null (elt current-blocks day19/geo-index)) "Block on geode :(")
     (let ((possible-moves (day19/remove-blocked-moves buildable current-blocks)))
-      (if (not (equal possible-moves '(nil nil nil nil)))
-       ;; I can do something
+      (cond
+        ;; I'm bound to create a geode robot
+       ((elt possible-moves day19/geo-index)
+        (list (make-day19-evolution :next-blocks '(nil nil nil nil)
+                                    :new-robot '(0 0 0 1))))
+       ;; I can do something else
+       ((not (equal possible-moves '(nil nil nil nil)))
        (--mapcat
         (when (elt possible-moves it)
           (list
@@ -169,10 +174,12 @@
            ;; don't build and add a block
            (make-day19-evolution :next-blocks (day19/add-block current-blocks it)
                                  :new-robot '(0 0 0 0))))
-        '(0 1 2 3))
-       ;; There is no available move:just carry on
-       (list (make-day19-evolution :next-blocks current-blocks
-                                   :new-robot '(0 0 0 0)))))))
+        (reverse (list day19/ore-index
+               day19/clay-index
+               day19/obs-index))))
+       ;; I can't do anything
+       (t (list (make-day19-evolution :next-blocks current-blocks
+                                   :new-robot '(0 0 0 0))))))))
 
 (defun day19/evolve (state)
   (day19/evolve-with-f state #'day19/possible-evolutions))
@@ -226,11 +233,12 @@
       (when (> result *best-result*)
         (setq *best-result* result)
         (print (format "New best: %s" *best-result*))
-        (sit-for 0))
+        (sit-for 0.1))
       result))
    (t (apply #'max (-map #'day19/compute-quality (day19/next-scenarios state))))))
 
 (defun day19/compute-blueprint-quality (bprint)
+  (setq *best-result* 0)
   (day19/compute-quality (day19/create-starting-state bprint)))
 
 (defun day19/read-problem (lines)
