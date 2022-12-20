@@ -192,7 +192,11 @@
 
 (defun day19/next-decision (bprint state)
   (if-let ((choice&geode-state (day19/best-geode-choice bprint state)))
-      (day19/jump-state-to-construction bprint state (car choice&geode-state))
+      (if (= (car choice&geode-state) day19/obs-index)
+          ;; if the best course of action is for the obsidiean, pick the best way to reach it!
+          (day19/jump-state-to-construction bprint state (car (day19/best-obsidian-choice bprint state)))
+        ;; otherwise just build whatever
+      (day19/jump-state-to-construction bprint state (car choice&geode-state)))
     (if-let ((choice&obsidian-state (day19/best-obsidian-choice bprint state)))
         (day19/jump-state-to-construction bprint state (car choice&obsidian-state))
       (day19/evolve-state-resources-to-end state))))
@@ -204,8 +208,7 @@
     (nreverse states)))
 
 (defun day19/compute-blueprint-quality (bprint)
-  (setq *best-result* 0)
-  (day19/compute-quality (day19/create-starting-state bprint)))
+  (elt (day19-state-resources (car (nreverse (day19/evolve-blueprint bprint)))) day19/geo-index))
 
 (defun day19/read-problem (lines)
   (-map #'day19/read-blueprint lines))
