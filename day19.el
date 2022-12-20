@@ -75,16 +75,12 @@
 (defstruct day19-state "Simulation state"
            resources
            robots
-           blocks
-           bprint
            time)
 
-(defun day19/create-starting-state (bprint)
+(defun day19/create-starting-state ()
   (make-day19-state :time 0
-                    :bprint bprint
                     :resources '(0 0 0 0)
-                    :robots '(1 0 0 0)
-                    :blocks '(nil nil nil nil)))
+                    :robots '(1 0 0 0)))
 
 (defun day19/is-buildable? (resources cost)
   (> (apply #'min (day19/op (lambda (a b)
@@ -108,134 +104,45 @@
 (defun day19/compute-new-resources (current gain costs)
   (day19/op #'- (day19/op #'+ current gain) costs))
 
-;; TODO/FIXME assumes that the factory cannot create more than one robot per minute
-(defun day19/evolve-with-f (state evolutions-f)
-  (let* ((evolutions (funcall evolutions-f state))
-         (current-robots (day19-state-robots state))
-         (current-resources (day19-state-resources state))
-         (bprint (day19-state-bprint state))
-         (costs (day19-bprint-costs bprint))
-         (now (day19-state-time state)))
-    (-map (lambda (evolution)
-            (let* ((new-robot (day19-evolution-new-robot evolution))
-                   (costs (day19/build-cost costs new-robot))
-                   (gain current-robots))
-              (comment
-               (print (day19/compute-new-resources current-resources gain costs))
-               (sit-for 0.01))
-              (make-day19-state :resources (day19/compute-new-resources current-resources
-                                                                        gain
-                                                                        costs)
-                                :robots (day19/op #'+ current-robots new-robot)
-                                :blocks (day19-evolution-next-blocks evolution)
-                                :bprint bprint
-                                :time (1+ now))))
-          evolutions)))
-
-(defun day19/get-buildable-robots (state)
+(defun day19/get-buildable-robots (bprint state)
   "Returns a list of robots that can be built"
   (let ((resources (day19-state-resources state))
-        (costs (day19-bprint-costs (day19-state-bprint state))))
+        (costs (day19-bprint-costs bprint)))
     (--map (day19/is-buildable? resources (elt costs it)) (number-sequence 0 3))))
 
-(defstruct day19-evolution "Developments during the simulation"
-           next-blocks
-           new-robot)
+(defun day19/evolve-resources (now current robots)
+  "Evolve the resources with the status quo until day 24"
+  (let ((evolution (list (list now current))))
+    (--dotimes (- day19/total-time now)
+      (setq now (1+ now))
+      (setq current (day19/compute-new-resources current robots '(0 0 0 0)))
+      (setq evolution (cons (list now current) evolution)))
+    (nreverse evolution)))
 
-(defun day19/remove-blocked-moves (buildable blocks)
-  "Remove the buildable robots that are currently blocked"
-  (--map (if (car it) 0 (cdr it)) (-zip blocks buildable)))
+(defun day19/evolve-state-resources (state)
+  "Evolve the resources for the state until day 24"
+  (day19/evolve-resources (day19-state-time state)
+                          (day19-state-resources state)
+                          (day19-state-robots state)))
 
-(defun day19/create-move (index)
-  (-replace-at index 1 '(0 0 0 0)))
 
-(defun day19/add-block (blocks index)
-  (-replace-at index t blocks))
+(defun day19/eta-for-robot (times-resources cost)
+  "ETA for having the robot built (includes building time)"
+  (car (cdr (--drop-while (let ((resources (cadr it)))
+                        (< (apply #'min (day19/op #'- resources cost)) 0))
+                      times-resources))))
 
-(defun day19/possible-evolutions (state)
-  "Returns all possible developments of the current state"
-  (let ((buildable (day19/get-buildable-robots state))
-        (current-blocks (day19-state-blocks state)))
-    (advent/assert (null (elt current-blocks day19/geo-index)) "Block on geode :(")
-    (let ((possible-moves (day19/remove-blocked-moves buildable current-blocks)))
-      (cond
-        ;; I'm bound to create a geode robot
-       ((elt possible-moves day19/geo-index)
-        (list (make-day19-evolution :next-blocks '(nil nil nil nil)
-                                    :new-robot '(0 0 0 1))))
-       ;; I can do something else
-       ((not (equal possible-moves '(nil nil nil nil)))
-       (--mapcat
-        (when (elt possible-moves it)
-          (list
-           ;; build and clear the current blocks
-           (make-day19-evolution :next-blocks '(nil nil nil nil)
-                                 :new-robot (day19/create-move it))
-           ;; don't build and add a block
-           (make-day19-evolution :next-blocks (day19/add-block current-blocks it)
-                                 :new-robot '(0 0 0 0))))
-        (reverse (list day19/ore-index
-               day19/clay-index
-               day19/obs-index))))
-       ;; I can't do anything
-       (t (list (make-day19-evolution :next-blocks current-blocks
-                                   :new-robot '(0 0 0 0))))))))
+(defun day19/jump-state-to-construction (bprint state robot-index)
+  (let ((evolved-resources (day19/evolve-state-resources state))
+        (robot-cost (elt (day19-bprint-costs bprint) robot-index)))
+    (if-let ((expected-deadline (day19/eta-for-robot evolved-resources robot-cost)))
+        (let ((resources-after-construction (day19/compute-new-resources (cadr expected-deadline)
+                                                                         '(0 0 0 0) ; already accounted
+                                                                         robot-cost)))
+          (make-day19-state :resources resources-after-construction
+                            :robots (-update-at robot-index #'1+ (day19-state-robots state))
+                            :time (car expected-deadline))))))
 
-(defun day19/evolve (state)
-  (day19/evolve-with-f state #'day19/possible-evolutions))
-
-(defun day19/evolve-resources (state)
-  (day19/evolve-with-f state (lambda (_)
-                               (list (make-day19-evolution :next-blocks '(nil nil nil nil)
-                                                           :new-robot '(0 0 0 0))))))
-
-(defun day19/next-scenarios (state)
-  "Compute all possibile evolutions of the resources"
-  (let ((now (day19-state-time state)))
-    (case (- day19/total-time now)
-     ;; You messed something up
-     (0 (error "Overdue simulation"))
-     ;; No time/reason to make more robots: just evolve the resources
-     (1 (day19/evolve-resources state))
-     ;; Anything goes
-     (t (day19/evolve state)))))
-
-(setq *best-result* 0)
-
-(defun day19/is-absurd? (state)
-  (let ((blocks (day19-state-blocks state))
-        (robots (day19-state-robots state)))
-    (or
-     ;; everything is blocked
-     (equal blocks '(t t t t))
-     ;; no clay robots…
-     (and (zerop (elt robots day19/clay-index))
-          ;; but both ore and clay robots cannot be built
-          (elt blocks day19/ore-index)
-          (elt blocks day19/clay-index))
-     ;; no obsidian robots
-     (and (zerop (elt robots day19/obs-index))
-          ;; but only the geode robot can be built
-          (equal blocks '(t t t nil))))))
-
-(defun day19/compute-quality (state)
-  (cond
-   ((day19/is-absurd? state)
-    -1)
-   ((= (day19-state-time state) day19/total-time)
-    (let ((result (elt (day19-state-resources state) day19/geo-index)))
-      (comment
-        (print (format "RESOURCES: %s ROBOTS: %s BLOCKS: %s"
-                       (day19-state-resources state)
-                       (day19-state-robots state)
-                       (day19-state-blocks state)))
-        (sit-for 0.1))
-      (when (> result *best-result*)
-        (setq *best-result* result)
-        (print (format "New best: %s" *best-result*))
-        (sit-for 0.1))
-      result))
-   (t (apply #'max (-map #'day19/compute-quality (day19/next-scenarios state))))))
 
 (defun day19/compute-blueprint-quality (bprint)
   (setq *best-result* 0)
