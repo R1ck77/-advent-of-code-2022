@@ -75,6 +75,7 @@
 (defstruct day19-state "Simulation state"
            resources
            robots
+           blocks
            bprint
            time)
 
@@ -82,14 +83,16 @@
   (make-day19-state :time 0
                     :bprint bprint
                     :resources '(0 0 0 0)
-                    :robots '(1 0 0 0)))
+                    :robots '(1 0 0 0)
+                    :blocks '(nil nil nil nil)))
 
-(defun day19/buildable-robots (resources cost)
-  (apply #'min (day19/op (lambda (a b)
-                           (if (zerop b)
-                               most-positive-fixnum
-                             (/ a b)))
-                         resources cost)))
+(defun day19/is-buildable? (resources cost)
+  (> (apply #'min (day19/op (lambda (a b)
+                              (if (zerop b)
+                                  most-positive-fixnum
+                                (/ a b)))
+                            resources cost))
+     0))
 
 (defun day19/sub-mul (v1 v2 m)
   "res = v1 - m * v2"
@@ -105,71 +108,79 @@
 (defun day19/compute-new-resources (current gain costs)
   (day19/op #'- (day19/op #'+ current gain) costs))
 
-(defun day19/evolve-with-f (state build-f)
-  (let* ((builds (funcall build-f state))
+;; TODO/FIXME assumes that the factory cannot create more than one robot per minute
+(defun day19/evolve-with-f (state evolutions-f)
+  (let* ((evolutions (funcall evolutions-f state))
          (current-robots (day19-state-robots state))
          (current-resources (day19-state-resources state))
          (bprint (day19-state-bprint state))
          (costs (day19-bprint-costs bprint))
          (now (day19-state-time state)))
-    (-map (lambda (build)
-            (let ((costs (day19/build-cost costs build))
-                  (gain current-robots))
+    (-map (lambda (evolution)
+            (let* ((new-robot (day19-evolution-new-robot evolution))
+                   (costs (day19/build-cost costs new-robot))
+                   (gain current-robots))
+              (comment
+               (print (day19/compute-new-resources current-resources gain costs))
+               (sit-for 0.01))
               (make-day19-state :resources (day19/compute-new-resources current-resources
                                                                         gain
                                                                         costs)
-                                :robots (day19/op #'+ current-robots build)
+                                :robots (day19/op #'+ current-robots new-robot)
+                                :blocks (day19-evolution-next-blocks evolution)
                                 :bprint bprint
                                 :time (1+ now))))
-          builds)))
+          evolutions)))
 
-;;; TODO/FIXME 5 nested cycles. What could go wrong?
-(defun day19/possible-builds (state)
-  (let* ((resources (day19-state-resources state))
-         (costs (day19-bprint-costs (day19-state-bprint state)))
-         (ore-cost (elt costs 0))
-         (clay-cost (elt costs 1))
-         (obs-cost (elt costs 2))
-         (geo-cost (elt costs 3))         
-         (scenarios))
-    ;; I'm assuming the maximum number of geode robots is always the best one
-    ;; TODO/FIXME is it true, though?
-    (-each (list (day19/buildable-robots resources geo-cost))
-     ;-each (number-sequence 0 (day19/buildable-robots resources geo-cost))
-      (lambda (geo-robots)
-        (let ((resources (day19/sub-mul resources geo-cost geo-robots)))
-          (-each (number-sequence 0 (day19/buildable-robots resources obs-cost))
-            (lambda (obs-robots)
-              (let ((resources (day19/sub-mul resources obs-cost obs-robots)))
-                (-each (number-sequence 0 (day19/buildable-robots resources clay-cost))
-                  (lambda (clay-robots)
-                    (let ((resources (day19/sub-mul resources clay-cost clay-robots)))
-                      (-each (number-sequence 0 (day19/buildable-robots resources ore-cost))
-                        (lambda (ore-robots)
-                          (let ((resources (day19/sub-mul resources ore-cost ore-robots)))
-                            (setq scenarios (cons (list ore-robots clay-robots obs-robots geo-robots)
-                                                  scenarios))))))))))))))
-    scenarios))
+(defun day19/get-buildable-robots (state)
+  "Returns a list of robots that can be built"
+  (let ((resources (day19-state-resources state))
+        (costs (day19-bprint-costs (day19-state-bprint state))))
+    (--map (day19/is-buildable? resources (elt costs it)) (number-sequence 0 3))))
 
-;; TODO/FIXME implement if needed
+(defstruct day19-evolution "Developments during the simulation"
+           next-blocks
+           new-robot)
+
+(defun day19/remove-blocked-moves (buildable blocks)
+  "Remove the buildable robots that are currently blocked"
+  (--map (if (car it) 0 (cdr it)) (-zip blocks buildable)))
+
+(defun day19/create-move (index)
+  (-replace-at index 1 '(0 0 0 0)))
+
+(defun day19/add-block (blocks index)
+  (-replace-at index t blocks))
+
+;; TODO/FIXME not sure if building a geode robot is mandatory, I'll play it safe for now
+(defun day19/possible-evolutions (state)
+  "Returns all possible developments of the current state"
+  (let ((buildable (day19/get-buildable-robots state))
+        (current-blocks (day19-state-blocks state)))    
+    (let ((possible-moves (day19/remove-blocked-moves buildable current-blocks)))
+      (if (not (equal possible-moves '(nil nil nil nil)))
+       ;; I can do something
+       (--mapcat
+        (when (elt possible-moves it)
+          (list
+           ;; build and clear the current blocks
+           (make-day19-evolution :next-blocks '(nil nil nil nil)
+                                 :new-robot (day19/create-move it))
+           ;; don't build and add a block
+           (make-day19-evolution :next-blocks (day19/add-block current-blocks it)
+                                 :new-robot '(0 0 0 0))))
+        '(0 1 2 3))
+       ;; There is no available move:just carry on
+       (list (make-day19-evolution :next-blocks current-blocks
+                                   :new-robot '(0 0 0 0)))))))
+
 (defun day19/evolve (state)
-  (day19/evolve-with-f state #'day19/possible-builds))
+  (day19/evolve-with-f state #'day19/possible-evolutions))
 
-
-(defun day19/geo-robots-builds (state)
-  (let* ((resources (day19-state-resources state))
-         (costs (day19-bprint-costs (day19-state-bprint state)))
-         (geo-cost (elt costs 3))         
-        (scenarios))
-    (list (list 0 0 0 (day19/buildable-robots resources geo-cost)))))
-
-;; TODO/FIXME implement if needed
-(defun day19/evolve-geode-robots (state)
-  (day19/evolve-with-f state #'day19/geo-robots-builds))
-
-;; TODO/FIXME implement if needed
 (defun day19/evolve-resources (state)
-    (day19/evolve-with-f state (lambda (_) '((0 0 0 0)))))
+  (day19/evolve-with-f state (lambda (_)
+                               (list (make-day19-evolution :next-blocks '(nil nil nil nil)
+                                                           :new-robot '(0 0 0 0))))))
 
 (defun day19/next-scenarios (state)
   "Compute all possibile evolutions of the resources"
@@ -179,29 +190,45 @@
      (0 (error "Overdue simulation"))
      ;; No time/reason to make more robots: just evolve the resources
      (1 (day19/evolve-resources state))
-     ;; No time/reason to create anything but geode extraction robots
-     (2 (day19/evolve-geode-robots state))
      ;; Anything goes
      (t (day19/evolve state)))))
 
 (setq *best-result* 0)
 
+(defun day19/is-absurd? (state)
+  (let ((blocks (day19-state-blocks state))
+        (robots (day19-state-robots state)))
+    (or
+     ;; everything is blocked
+     (equal blocks '(t t t t))
+     ;; no clay robots…
+     (and (zerop (elt robots day19/clay-index))
+          ;; but both ore and clay robots cannot be built
+          (elt blocks day19/ore-index)
+          (elt blocks day19/clay-index))
+     ;; no obsidian robots
+     (and (zerop (elt robots day19/obs-index))
+          ;; but only the geode robot can be built
+          (equal blocks '(t t t nil))))))
+
 (defun day19/compute-quality (state)
-  (if (= (day19-state-time state) day19/total-time )
-      (let ((result (elt (day19-state-resources state) day19/geo-index)))
-        (when (> result *best-result*)
-          (setq *best-result* result)
-          (print (format "New best: %s" *best-result*))
-          (sit-for 0))
-        (comment 
-         (progn 
-           (print (format "Robots: %s Resources: %s Result: %s"
-                          (day19-state-robots state)
-                          (day19-state-resources state)
-                          result))
-           (sit-for 0)))
-        result)
-    (apply #'max (-map #'day19/compute-quality (day19/next-scenarios state)))))
+  (cond
+   ((day19/is-absurd? state)
+    -1)
+   ((= (day19-state-time state) day19/total-time)
+    (let ((result (elt (day19-state-resources state) day19/geo-index)))
+      (comment
+        (print (format "RESOURCES: %s ROBOTS: %s BLOCKS: %s"
+                       (day19-state-resources state)
+                       (day19-state-robots state)
+                       (day19-state-blocks state)))
+        (sit-for 0.1))
+      (when (> result *best-result*)
+        (setq *best-result* result)
+        (print (format "New best: %s" *best-result*))
+        (sit-for 0))
+      result))
+   (t (apply #'max (-map #'day19/compute-quality (day19/next-scenarios state))))))
 
 (defun day19/compute-blueprint-quality (bprint)
   (day19/compute-quality (day19/create-starting-state bprint)))
