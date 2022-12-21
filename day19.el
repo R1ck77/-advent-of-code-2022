@@ -165,26 +165,51 @@
   (when state
     (elt (day19-state-resources state) day19/geo-index)))
 
-(defun day19/next-combinations (bprint state path)
-  (sit-for 0.1)
+;; TODO/FIXME not sure...
+(defun day19/evaluate-sequence-with-check (bprint state path last-state)
+  
+  (let ((i))
+    
+    (day19/jump-state-to-construction bprint last-state (car path))))
+
+(defun day19/next-combinations (bprint state path last-state)
   (--map (list (day19/state-score (cadr it))
                (cadr it)
                (car it))
          (--filter (cadr it)
                    (--map (list it
-                                (day19/evaluate-sequence bprint
-                                                         state
-                                                         (reverse it)))
+                                (day19/evaluate-sequence-with-check bprint
+                                                                    state
+                                                                    it
+                                                                    last-state))
                           (--map (cons it path) day19/indices)))))
 
-(defun day19/search-best (bprint state &optional path)
+(defvar *best-result* )
+(defun day19/search-best (bprint state path last-state)
+  (comment
+    (print (reverse path))
+    (sit-for 0.01))
   (advent/assert state "nil state?")
-  (let ((score-state-path-list (day19/next-combinations bprint state path)))
+  (let ((score-state-path-list (day19/next-combinations bprint state path (or last-state state))))
     (if score-state-path-list
-        (apply #'max (or (--map (day19/search-best bprint (elt it 1) (elt it 2))
+        (apply #'max (or (--map (day19/search-best bprint state (elt it 2) (elt it 1))
                                 score-state-path-list)
                          '(-1)))
-      (day19/state-score state))))
+      (let ((result (day19/state-score (if path
+                                    (day19/evaluate-sequence bprint state (reverse path))
+                                    state))))
+        (when (> result *best-result*)
+          (print result)
+          (setq *best-result* result)
+          (sit-for 0.01))
+        result))))
+
+(defun day19/compute-quality (bprint)
+  (setq *best-result* 0)
+  (day19/search-best bprint
+                     (day19/create-starting-state)
+                     nil
+                     nil))
 
 (defun day19/compute-blueprint-quality (bprint)
   (day19/state-score (car (nreverse (day19/evolve-blueprint bprint)))))
