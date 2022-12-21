@@ -12,6 +12,11 @@
 (defconst day19/obs-index 2)
 (defconst day19/geo-index 3)
 
+(defconst day19/indices (list day19/ore-index
+                              day19/clay-index
+                              day19/obs-index
+                              day19/geo-index))
+
 (defstruct day19-bprint "Blueprint description"
   id costs)
 
@@ -154,36 +159,35 @@
   (-reduce-from (lambda (state move)
              (if state
                  (day19/jump-state-to-construction bprint state move)))
-           state moves))
+                state moves))
 
-(defun day19/index-of-best-choice (choices-list)
-    (car                                ;take the first
-     (--sort (< (day19-state-time (cdr it))
-                (day19-state-time (cdr other)))     ;sort the remaining ones
-           (--filter (cdr it)           ;discard invalid choices
-                     (--map-indexed (cons it-index it) choices-list)))))
+(defun day19/state-score (state)
+  (when state
+    (elt (day19-state-resources state) day19/geo-index)))
 
+(defun day19/next-combinations (bprint state path)
+  (sit-for 0.1)
+  (--map (list (day19/state-score (cadr it))
+               (cadr it)
+               (car it))
+         (--filter (cadr it)
+                   (--map (list it
+                                (day19/evaluate-sequence bprint
+                                                         state
+                                                         (reverse it)))
+                          (--map (cons it path) day19/indices)))))
 
-
-(defun day19/limiting-factor-for-geode-robot (bprint state)
-  (day19/first-))
-
-
-(defun day19/next-decision (bprint state)
-  (if (day19/limiting-factor-for-geode-robot))
-)
-
-
-
-(defun day19/evolve-blueprint (bprint)
-  (let ((states (list (day19/create-starting-state))))
-    (while (/= (day19-state-time (car states)) day19/total-time)
-      (setq states (cons (day19/next-decision bprint (car states)) states)))
-    (nreverse states)))
+(defun day19/search-best (bprint state &optional path)
+  (advent/assert state "nil state?")
+  (let ((score-state-path-list (day19/next-combinations bprint state path)))
+    (if score-state-path-list
+        (apply #'max (or (--map (day19/search-best bprint (elt it 1) (elt it 2))
+                                score-state-path-list)
+                         '(-1)))
+      (day19/state-score state))))
 
 (defun day19/compute-blueprint-quality (bprint)
-  (elt (day19-state-resources (car (nreverse (day19/evolve-blueprint bprint)))) day19/geo-index))
-
+  (day19/state-score (car (nreverse (day19/evolve-blueprint bprint)))))
 
 (defun day19/read-problem (lines)
   (-map #'day19/read-blueprint lines))
