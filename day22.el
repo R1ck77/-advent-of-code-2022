@@ -318,12 +318,12 @@
 
 (defun day22/get-face (M pos)
   (let ((face (cond
-               ((day22/on-face M pos (cons 0 (* 2 M))) 1)
-               ((day22/on-face M pos (cons M 0)) 2)
-               ((day22/on-face M pos (cons M M)) 3)
-               ((day22/on-face M pos (cons M (* 2 M))) 4)
-               ((day22/on-face M pos (cons (* 2 M) (* 2 M))) 5)
-               ((day22/on-face M pos (cons (* 2 M) (* 3 M))) 6)
+               ((day22/on-face M pos (day22/get-face-start-corner M 1)) 1)
+               ((day22/on-face M pos (day22/get-face-start-corner M 2)) 2)
+               ((day22/on-face M pos (day22/get-face-start-corner M 3)) 3)
+               ((day22/on-face M pos (day22/get-face-start-corner M 4)) 4)
+               ((day22/on-face M pos (day22/get-face-start-corner M 5)) 5)
+               ((day22/on-face M pos (day22/get-face-start-corner M 6)) 6)
                (t nil))))
     (advent/assert face)
     face))
