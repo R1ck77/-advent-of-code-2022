@@ -273,7 +273,7 @@
                 (3 "^"))))
     (display-buffer "*Map*")
     (sit-for 0.1)
-;    (read-from-minibuffer "Continue?")
+    ;;(read-from-minibuffer "Continue?")
     ))
 
 (defun day22/consume-moves (state)
@@ -335,44 +335,44 @@
        (< (cdr pos) (* 4 M))))
 
 ;; The last form should be fed the local coordinates for the starting face modulo M
-(defvar day22/topology `(nil            ;we start from 1
+(setq day22/topology `(nil            ;we start from 1
                          ;; 1
-                         (:right (6 day22/left (list (- M row 1) (1- M)))
-                          :down (4 day22/down (list row 0))
-                          :left (3 day22/down (list 0 row))
-                          :up (2 day22/down (list 0 (- M column 1))))
+                         (:right (6 ,day22/left (list (- M row 1) (1- M)))
+                          :down (4 ,day22/down (list 0 column))
+                          :left (3 ,day22/down (list 0 row))
+                          :up (2 ,day22/down (list 0 (- M column 1))))
                          ;; 2
-                         (:right (3 day22/right (list row 0))
-                          :down (5 day22/up (list (- M row 1)  column))
-                          :left (6 day22/up (list (1- M) (- M row 1)))
-                          :up (1 day22/down (list 0 (- M column 1))))
+                         (:right (3 ,day22/right (list row 0))
+                          :down (5 ,day22/up (list (- M row 1)  column))
+                          :left (6 ,day22/up (list (1- M) (- M row 1)))
+                          :up (1 ,day22/down (list 0 (- M column 1))))
                          ;; 3
-                         (:right (4 day22/right (list row 0))
-                          :down (5 day22/right (list (- M column 1) 0))
-                          :left (2 day22/left (list row (1- M)))
-                          :up (1 day22/right (list column 0)))
+                         (:right (4 ,day22/right (list row 0))
+                          :down (5 ,day22/right (list (- M column 1) 0))
+                          :left (2 ,day22/left (list row (1- M)))
+                          :up (1 ,day22/right (list column 0)))
                          ;; 4
-                         (:right (6 day22/down (list 0 (- M row 1)))
-                          :down (5 day22/down (list 0 column))
-                          :left (3 day22/left (list row (1- M)))
-                          :up (1 day22/up (list (1- M) column)))
+                         (:right (6 ,day22/down (list 0 (- M row 1)))
+                          :down (5 ,day22/down (list 0 column))
+                          :left (3 ,day22/left (list row (1- M)))
+                          :up (1 ,day22/up (list (1- M) column)))
                          ;; 5
-                         (:right (6 day22/right (list row 0))
-                          :down (2 day22/up (list (1- M) (- M column 1)))
-                          :left (3 day22/up (list (1- M) (- M row 1)))
-                          :up (4 day22/up (list (1- M) column)))
+                         (:right (6 ,day22/right (list row 0))
+                          :down (2 ,day22/up (list (1- M) (- M column 1)))
+                          :left (3 ,day22/up (list (1- M) (- M row 1)))
+                          :up (4 ,day22/up (list (1- M) column)))
                          ;; 6
-                         (:right (1 day22/left (list (- M row 1) (1- M)))
-                          :down (2 day22/right (list (- M column 1) 0))
-                          :left (5 day22/left (list row (1- M)))
-                          :up (4 day22/left (list (- M column 1) (1- M))))))
+                         (:right (1 ,day22/left (list (- M row 1) (1- M)))
+                          :down (2 ,day22/right (list (- M column 1) 0))
+                          :left (5 ,day22/left (list row (1- M)))
+                          :up (4 ,day22/left (list (- M column 1) (1- M))))))
 
 (defun day22/direction-to-displacement (direction)
   (case direction
-    (0 '(1 . 0))
-    (1 '(0 . -1))
-    (2 '(-1 . 0))
-    (3 '(0 . 1))))
+    (0 '(0 . 1))
+    (1 '(1 . 0))
+    (2 '(0 . -1))
+    (3 '(-1 . 0))))
 
 
 (defun day22/pos-to-local (M face pos)
@@ -478,11 +478,10 @@
       (day22/rotate-state state))))
 
 (defun day22/consume-moves-3d (state)
-  ;(day22/debug-print-state state)
+  (day22/debug-print-state state)
   (while (day22-state-moves state)
     (setq state (day22/move-3d state))
-    ;(day22/debug-print-state state)
-    )
+    (day22/debug-print-state state))
   state)
 
 (defun day22/part-2 (line-blocks)
