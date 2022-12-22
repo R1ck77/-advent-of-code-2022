@@ -272,8 +272,8 @@
                 (2 "<")
                 (3 "^"))))
     (display-buffer "*Map*")
-    (sit-for 0.1)
-    ;;(read-from-minibuffer "Continue?")
+;;    (sit-for 0.1)
+    (read-from-minibuffer "Continue?")
     ))
 
 (defun day22/consume-moves (state)
@@ -358,6 +358,60 @@
 (defvar day22/example-specifics (list :get-M-f #'day22/get-M-example
                                       :get-face-start-corner-f #'day22/get-face-start-corner-example
                                       :topology day22/example-topology))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Problem specific functions
+
+(defun day22/get-M-problem (board)
+  (/ (length board) 4))
+
+(defun day22/get-face-start-corner-problem (M index)
+  (elt (list
+        nil
+        (cons 0 M)
+        (cons 0 (* 2 M))
+        (cons M M) 
+        (cons (* 2 M) 0) 
+        (cons (* 2 M) M) 
+        (cons (* 3 M) 0))
+       index))
+
+;; The last form should be fed the local coordinates for the starting face modulo M
+(setq day22/problem-topology `(nil            ;we start from 1
+                         ;; 1
+                         (:right (2 ,day22/right (list row 0))
+                          :down (3 ,day22/down (list 0 column))
+                          :left (4 ,day22/right (list (- M row 1) 0))
+                          :up (6  ,day22/right (list column 0)))
+                         ;; 2
+                         (:right (5 ,day22/left (list (- M row 1) (1- M)))
+                          :down (3 ,day22/left (list column (1- M)))
+                          :left (1 ,day22/left (list row (1- M)))
+                          :up (6 ,day22/up (list (1- M) column)))
+                         ;; 3
+                         (:right (2 ,day22/up (list (1- M) row))
+                          :down (5 ,day22/down (list 0 column))
+                          :left (4 ,day22/down (list 0 row))
+                          :up (1 ,day22/up (list (1- M) column)))
+                         ;; 4
+                         (:right (5 ,day22/right (list row 0))
+                          :down (6 ,day22/down (list 0 column))
+                          :left (1 ,day22/right (list (- M row 1) 0))
+                          :up (3 ,day22/right (list column 0)))
+                         ;; 5
+                         (:right (2 ,day22/left (list (- M row 1) (1- M)))
+                          :down (6 ,day22/left (list column (1- M)))
+                          :left (4 ,day22/left (list row (1- M)))
+                          :up (3 ,day22/up (list (1- M) column)))
+                         ;; 6
+                         (:right (5 ,day22/up (list (1- M) row))
+                          :down (2 ,day22/down (list 0 column))
+                          :left (1 ,day22/down (list 0 row))
+                          :up (4 ,day22/up (list (1- M) column)))))
+
+(setq day22/problem-specifics (list :get-M-f #'day22/get-M-problem
+                                      :get-face-start-corner-f #'day22/get-face-start-corner-problem
+                                      :topology day22/problem-topology))
 
 
 (defun day22/direction-to-displacement (direction)
@@ -482,15 +536,19 @@
       (day22/rotate-state state))))
 
 (defun day22/consume-moves-3d (specifics state)
-  (day22/debug-print-state state)
+;;  (day22/debug-print-state state)
   (while (day22-state-moves state)
     (setq state (day22/move-3d specifics state))
-    (day22/debug-print-state state))
+;;    (day22/debug-print-state state)
+    )
   state)
 
-(defun day22/part-2 (line-blocks)
+(defun day22/part-2 (line-blocks type)  
+  (print "* Warning: this solution requires manual modification of the code")
   (day22/compute-password
-   (day22/consume-moves-3d day22/example-specifics
+   (day22/consume-moves-3d (if (eq type :example)
+                               day22/example-specifics
+                             day22/problem-specifics)
                            (day22/create-initial-state
                             (day22/read-problem line-blocks)))))
 
