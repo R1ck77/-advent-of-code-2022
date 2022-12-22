@@ -54,6 +54,8 @@ ARG=4 make single
 
 *** How to use the code to compute your own solutions
 
+*MOST* solutions are general, that is, they should work with different inputs (see the NOTES, though…).
+
 If you want to compute the solution against your own input:
 
 1. overwrite the data file for the day of interest in the  =data= directory with your own problem input
@@ -71,3 +73,10 @@ Keep in mind that, in order to load the el files, you need to have the =load-pat
 
 Also, while I expect my code to work for your inputs, /I can't be 100% certain/ that it will: maybe your input has quirks that my code wasn't designed for, or maybe my code worked out the example and my problem out of sheer luck (hopefully not…).
 
+*** Notes
+
+These solutions are not 100% complete as they require some manual computation or are specific to the problem I have received somehow:
+
+- Day 17 doesn't compute the final result for part 2 but requires some manual operations to get the solution (specifically one needs to calculate a period manually, which is not difficult). The code could be extended to automatically detect the pattern using a running sum, but frankly I don't care.
+
+- Day 22 has the details of map folding manually encoded in the program in a structure called ``day22/problem-topology``. It contains, among the other things, the seams of the cube and how the direction and coordinates behave when changing faces. I guess there is probably an elegant matematical way to do that automatically, but at this point I'm jaded beyond belief.
