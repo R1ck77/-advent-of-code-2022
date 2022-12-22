@@ -305,7 +305,13 @@
     (and (>= row min-row) (>= column min-column)
          (< row (+ side min-row)) (< column (+ side min-column)))))
 
-(defun day22/get-face-start-corner (M index)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Example specific functions
+
+(defun day22/get-M-example (board)
+  (/ (length board) 3))
+
+(defun day22/get-face-start-corner-example (M index)
   (elt (list
         nil
         (cons 0 (* 2 M))
@@ -316,26 +322,8 @@
         (cons (* 2 M) (* 3 M)) )
        index))
 
-(defun day22/get-face (M pos)
-  (let ((face (cond
-               ((day22/on-face M pos (day22/get-face-start-corner M 1)) 1)
-               ((day22/on-face M pos (day22/get-face-start-corner M 2)) 2)
-               ((day22/on-face M pos (day22/get-face-start-corner M 3)) 3)
-               ((day22/on-face M pos (day22/get-face-start-corner M 4)) 4)
-               ((day22/on-face M pos (day22/get-face-start-corner M 5)) 5)
-               ((day22/on-face M pos (day22/get-face-start-corner M 6)) 6)
-               (t nil))))
-    (advent/assert face)
-    face))
-
-(defun day22/is-on-map? (M pos)
-  (and (>= (car pos) 0)
-       (>= (cdr pos) 0)
-       (< (car pos) (* 3 M))
-       (< (cdr pos) (* 4 M))))
-
 ;; The last form should be fed the local coordinates for the starting face modulo M
-(setq day22/topology `(nil            ;we start from 1
+(setq day22/example-topology `(nil            ;we start from 1
                          ;; 1
                          (:right (6 ,day22/left (list (- M row 1) (1- M)))
                           :down (4 ,day22/down (list 0 column))
@@ -367,6 +355,11 @@
                           :left (5 ,day22/left (list row (1- M)))
                           :up (4 ,day22/left (list (- M column 1) (1- M))))))
 
+(defvar day22/example-specifics (list :get-M-f #'day22/get-M-example
+                                      :get-face-start-corner-f #'day22/get-face-start-corner-example
+                                      :topology day22/example-topology))
+
+
 (defun day22/direction-to-displacement (direction)
   (case direction
     (0 '(0 . 1))
@@ -374,16 +367,15 @@
     (2 '(0 . -1))
     (3 '(-1 . 0))))
 
-
-(defun day22/pos-to-local (M face pos)
+(defun day22/pos-to-local (specifics M face pos)
   (advent/assert face)
-  (let ((start-corner (day22/get-face-start-corner M face)))
+  (let ((start-corner (funcall (plist-get specifics :get-face-start-corner-f) M face)))
     (cons (- (car pos) (car start-corner))
           (- (cdr pos) (cdr start-corner)))))
 
-(defun day22/local-to-pos (M face local)
+(defun day22/local-to-pos (specifics M face local)
   (advent/assert face)
-  (let ((start-corner (day22/get-face-start-corner M face)))
+  (let ((start-corner (funcall (plist-get specifics :get-face-start-corner-f)M face)))
     (cons (+ (car local) (car start-corner))
           (+ (cdr local) (cdr start-corner)))))
 
@@ -400,9 +392,9 @@
     (2 :left)
     (3 :up)))
 
-(defun day22/compute-new-orientation (M old-face old-wrapped-local overflow-direction)
+(defun day22/compute-new-orientation (specifics M old-face old-wrapped-local overflow-direction)
   (seq-let (new-face new-direction coord-sexpr)
-      (plist-get (elt day22/topology old-face) overflow-direction)
+      (plist-get (elt (plist-get specifics :topology) old-face) overflow-direction)
     (let ((new-local-coordinates (eval coord-sexpr
                                        (list (cons 'M M)
                                              (cons 'row (car old-wrapped-local))
@@ -410,31 +402,41 @@
       (list new-face new-direction (cons (car new-local-coordinates)
                                          (cadr new-local-coordinates))))))
 
-;;; M is rows /3
-(defun day22/next-pos-dir (M pos-dir)
+(defun day22/get-face (specifics M pos)
+  (let ((face (cond
+               ((day22/on-face M pos (funcall (plist-get specifics :get-face-start-corner-f) M 1)) 1)
+               ((day22/on-face M pos (funcall (plist-get specifics :get-face-start-corner-f) M 2)) 2)
+               ((day22/on-face M pos (funcall (plist-get specifics :get-face-start-corner-f) M 3)) 3)
+               ((day22/on-face M pos (funcall (plist-get specifics :get-face-start-corner-f) M 4)) 4)
+               ((day22/on-face M pos (funcall (plist-get specifics :get-face-start-corner-f) M 5)) 5)
+               ((day22/on-face M pos (funcall (plist-get specifics :get-face-start-corner-f) M 6)) 6)
+               (t nil))))
+    (advent/assert face)
+    face))
+
+(defun day22/next-pos-dir (specifics M pos-dir)
   (let* ((current-pos (car pos-dir))
         (current-dir (cadr pos-dir))
-        (current-face (day22/get-face M current-pos))
-        (current-local (day22/pos-to-local M current-face current-pos)))
+        (current-face (day22/get-face specifics M current-pos))
+        (current-local (day22/pos-to-local specifics M current-face current-pos)))
     (let* ((next-local (day22/candidate-coordinate current-local current-dir))
            (wrapped-local (cons (mod (car next-local) M)
                                 (mod (cdr next-local) M))))
       (if (equal next-local wrapped-local)
           ;; Same face, same-direction: just return the next coordinates converted to global
-          (list (day22/local-to-pos M current-face next-local) current-dir)
+          (list (day22/local-to-pos specifics M current-face next-local) current-dir)
         ;; Different face somehow: find where I'm overflowing and use that to compute
         ;; the new face, direction and local coordinate
         (seq-let (new-face new-direction new-local-coordinates)
-            (day22/compute-new-orientation M current-face wrapped-local (day22/find-wrap-direction current-dir))
-          (list (day22/local-to-pos M new-face new-local-coordinates)
+            (day22/compute-new-orientation specifics M current-face wrapped-local (day22/find-wrap-direction current-dir))
+          (list (day22/local-to-pos specifics M new-face new-local-coordinates)
                 new-direction))))))
 
-
 ;; TODO/FIXME this could be extracted, but whatever
-(defun day22/new-3d-position-direction (board position direction)
+(defun day22/new-3d-position-direction (specifics board position direction)
   "Returns the new position or nil in case of wall"
-  (let* ((M (/ (length board) 3))
-         (new-pos-direction (day22/next-pos-dir M (list position direction)))
+  (let* ((M (funcall (plist-get specifics :get-M-f) board))
+         (new-pos-direction (day22/next-pos-dir specifics M (list position direction)))
          (tile (day22/get-tile board (car new-pos-direction))))
     (cond 
      ((= day22/empty tile)
@@ -444,11 +446,12 @@
      ((= day22/wall tile)
       nil))))
 
-(defun day22/translate-3d (board position direction translation)
+(defun day22/translate-3d (specifics board position direction translation)
   (let ((steps 0)
         (stop))
     (while (and (not stop) (< steps translation )) 
-      (if-let ((new-position-direction (day22/new-3d-position-direction board
+      (if-let ((new-position-direction (day22/new-3d-position-direction specifics
+                                                                        board
                                                                         position
                                                                         direction)))
           (progn
@@ -458,11 +461,12 @@
       (setq steps (1+ steps)))
     (list position direction)))
 
-(defun day22/translate-3d-state (state)
+(defun day22/translate-3d-state (specifics state)
   (let ((board (day22-state-board state))
         (direction (day22-state-direction state))
         (moves (day22-state-moves state)))
-    (let ((new-pos-dir (day22/translate-3d board
+    (let ((new-pos-dir (day22/translate-3d specifics
+                                           board
                                            (day22-state-pos state)
                                            direction
                                            (caar moves))))      
@@ -471,23 +475,23 @@
                         :direction (cadr new-pos-dir)
                         :moves (cdr moves)))))
 
-(defun day22/move-3d (state)
+(defun day22/move-3d (specifics state)
   (let ((moves (day22-state-moves state)))
     (if (car (car moves))
-        (day22/translate-3d-state state)
+        (day22/translate-3d-state specifics state)
       (day22/rotate-state state))))
 
-(defun day22/consume-moves-3d (state)
+(defun day22/consume-moves-3d (specifics state)
   (day22/debug-print-state state)
   (while (day22-state-moves state)
-    (setq state (day22/move-3d state))
+    (setq state (day22/move-3d specifics state))
     (day22/debug-print-state state))
   state)
 
 (defun day22/part-2 (line-blocks)
   (day22/compute-password
-   (day22/consume-moves-3d
-    (day22/create-initial-state
-     (day22/read-problem line-blocks)))))
+   (day22/consume-moves-3d day22/example-specifics
+                           (day22/create-initial-state
+                            (day22/read-problem line-blocks)))))
 
 (provide 'day22)
