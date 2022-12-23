@@ -267,6 +267,30 @@ Assums no clay robot is present and that perfect production of clay robots and o
 (setq e (day19/read-problem example))
 (setq p (day19/read-problem problem))
 
+(setq *best* 1000)
+(defun day19/optimize-next-geo-robot (bprint current-state &optional path)
+  (if (eq (car path) day19/geo-index)
+      ;; don't evolve this: just return the time required or nil
+      (let ((result (day19-state-time current-state)))
+        (when (< result *best*)
+            (print (format "%s %s" path current-state))
+            (sit-for 0.1)            
+            (setq *best* result))
+        result)
+    ;; we can still develop this:
+    (cadr (car
+      (--sort (< (cadr it) (cadr other))
+              (--map (list (car it)
+                           (or (day19/optimize-next-geo-robot bprint
+                                                              (cadr it)
+                                                              (car it))
+                               1000))
+                     (--filter (and (cadr it)
+                                   (< (day19-state-time (cadr it)) *best*))
+                               (--map (list (cons it path) (day19/jump-state-to-construction bprint current-state it))
+                                      (reverse day19/indices)))))
+      ))))
+
 (defun day19/part-1 (lines)
   (error "Not yet implemented"))
 
@@ -274,3 +298,5 @@ Assums no clay robot is present and that perfect production of clay robots and o
   (error "Not yet implemented"))
 
 (provide 'day19)
+
+(day19/optimize-next-geo-robot (car e) (day19/create-starting-state))
