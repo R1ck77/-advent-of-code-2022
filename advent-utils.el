@@ -109,6 +109,10 @@ It binds:
   (declare (indent 1))
   `(advent/each-hash ,table (lambda (it-key it-value) ,@forms)))
 
+(defun advent/table-size (table)
+  "Returns the number of elements in a table"
+  (hash-table-count table))
+
 (defun advent/get-grid-size (grid)
   (cons (length grid)
         (length (aref grid 0))))
