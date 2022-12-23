@@ -2,9 +2,6 @@
 (require 'advent-utils)
 (require 's)
 
-(defconst example (advent/read-problem-lines 23 :example))
-(defconst problem (advent/read-problem-lines 23 :problem))
-
 (defconst day23/rules (list
                        (list :dest '(-1 . 0) :checks '((-1 . 0) (-1 . 1) (-1 . -1)))
                        (list :dest '(1 . 0) :checks '((1 . 0) (1 . 1) (1 . -1)))
@@ -17,24 +14,16 @@
 
 (defstruct day23-state "Positions of the elves and their internal states"
            elves ; position -> index (row,column)
-           rules ); index -> rule
+           current-rule ); index -> rule
 
 (defun day23/read-problem (lines)
   (let ((grid (advent/lines-to-grid lines (lambda (x) (if (string= x ".") 0 1))))
-        (elves (advent/table))
-        ;; Not needed at the moment, but I foresee a "next part, each elf choses it's own direction…
-        (rules (make-hash-table)))
+        (elves (advent/table)))
     (advent/-each-grid grid
       (when (= it-value 1)
-        (advent/put elves it-coord (advent/table-size rules))
-        ;; All elves propose the same rule for now, so this is unused
-        (advent/put rules (advent/table-size rules) 0) 
-        ))
+        (advent/put elves it-coord t)))
     (make-day23-state :elves elves
-                      :rules rules)))
-
-(setq e (day23/read-problem example))
-(setq p (day23/read-problem problem))
+                      :current-rule 0)))
 
 (defmacro day23/update (f value new-value)
   (let ((v (make-symbol "old"))
@@ -136,15 +125,12 @@ Rules is a cyclic list starting with the current rule"
 
 (defun day23/get-rules (state)
   "Get the cyclic list of the current rules"
-  (nthcdr (advent/get (day23-state-rules state) 0) (-cycle day23/rules)))
+  (nthcdr (day23-state-current-rule state) (-cycle day23/rules)))
 
 (defun day23/update-rules (state)
   "Update the counter for every elf"
-  (let ((new-rules (make-hash-table)))
-    (advent/-each-hash (day23-state-rules state)
-      (advent/put new-rules it-key (1+ it-value)))
-    (make-day23-state :rules new-rules
-                      :elves (copy-hash-table (day23-state-elves state)))))
+  (make-day23-state :current-rule (1+ (day23-state-current-rule state))
+                    :elves (copy-hash-table (day23-state-elves state))))
 
 (defun day23/move-elves (state moves)
   (let ((new-elves (copy-hash-table (day23-state-elves state))))
@@ -154,20 +140,23 @@ Rules is a cyclic list starting with the current rule"
           (remhash src new-elves)
           (advent/put new-elves dest rule-index))))
     (make-day23-state :elves new-elves
-                      :rules (day23-state-rules state))))
+                      :current-rule (1+ (day23-state-current-rule state)))))
 
 (defun day23/step (state)
   (if-let ((moves (day23/plan-elves-moves state (day23/get-rules state))))
-      (day23/update-rules (day23/move-elves state moves))
-    (day23/update-rules state)))
+      (list (length moves) (day23/move-elves state moves))
+    (list 0 (day23/update-rules state))))
 
 (defun day23/evolve (state steps)
-  ;(day23/debug-print state)
-  (--dotimes steps
-    (setq state (day23/step state))
-    ;(day23/debug-print state)
-    )
-  state)
+  (let ((step 0)
+        (elf-moving -1))
+    (while (and (< step steps)
+                (not (zerop elf-moving)))
+      (seq-let (new-moves new-state) (day23/step state)
+        (setq state new-state)
+        (setq elf-moving new-moves)
+        (setq step (1+ step))))
+    (list step state)))
 
 (defun day23/rectangle-area (state)
   (seq-let (min max) (day23/get-corners state)
@@ -180,10 +169,13 @@ Rules is a cyclic list starting with the current rule"
 
 (defun day23/part-1 (lines)
   (day23/compute-empty
-   (day23/evolve (day23/read-problem lines)
-                 10)))
+   (cadr
+    (day23/evolve (day23/read-problem lines)
+                  10))))
 
 (defun day23/part-2 (lines)
-  (error "Not yet implemented"))
+    (car
+     (day23/evolve (day23/read-problem lines)
+                   most-positive-fixnum)))
 
 (provide 'day23)
