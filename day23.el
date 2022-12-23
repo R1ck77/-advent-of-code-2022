@@ -9,7 +9,7 @@
                        (list :dest '(-1 . 0) :checks '((-1 . 0) (-1 . 1) (-1 . -1)))
                        (list :dest '(1 . 0) :checks '((1 . 0) (1 . 1) (1 . -1)))
                        (list :dest '(0 . -1) :checks '((0 . -1) (-1 . -1) (1 . -1)))
-                       (list :dest '(0. 1) :checks '((0 . 1) (-1 . 1) (1 . 1)))))
+                       (list :dest '(0 . 1) :checks '((0 . 1) (-1 . 1) (1 . 1)))))
 
 (defconst day23/all-neighbors '((-1 . -1) (-1 . 0) (-1 .  1)
                                 ( 0 . -1)          ( 0 .  1)
@@ -41,12 +41,12 @@
         (n (make-symbol "new")))
     `(let ((,v ,value)
            (,n ,new-value))
-      (setq ,value (if (or (not ,v) (funcall ,f ,n ,v))
-                       ,n
-                     ,v)))))
+       (setq ,value (if (or (not ,v) (funcall ,f ,n ,v))
+                        ,n
+                      ,v)))))
 
 (defun day23/get-corners (state)
-  "Return the minimum and maximum coordinate for the elves"
+  "Return the rectangle containing all elves [min, max["
   (let ((min-row)
         (min-column)
         (max-row)
@@ -57,7 +57,7 @@
       (day23/update #'> max-row (car it-key))
       (day23/update #'> max-column (cdr it-key)))
     (list (cons min-row min-column)
-          (cons max-row max-column))))
+          (cons (1+ max-row) (1+ max-column)))))
 
 (defun day23/to-buffer (state buffer)
   (let ((elves (day23-state-elves state))
@@ -67,9 +67,9 @@
             (columns (- (cdr max) (cdr min))))
         (with-current-buffer buffer
           (erase-buffer)
-          (-dotimes (1+ rows)
+          (-dotimes rows
             (lambda (row)
-              (-dotimes (1+ columns)
+              (-dotimes columns
                 (lambda (column)
                   (insert (if (advent/get elves (cons (+ (car min) row)
                                                       (+ (cdr min) column)))
@@ -121,16 +121,15 @@ Rules is a cyclic list starting with the current rule"
   (let ((moves-planned (advent/table)))
     ;; Find all proposals and count them
     (advent/-each-hash (day23-state-elves state)
-        (if-let ((elf-proposal (day23/elf-proposal state it-key rules)))
-            (advent/update moves-planned elf-proposal
-                        (lambda (key old-value)
-                          (if old-value
-                              (cons it-key old-value)
-                            (list it-key))))))
+      (if-let ((elf-proposal (day23/elf-proposal state it-key rules)))
+          (advent/update moves-planned elf-proposal
+                         (lambda (key old-value)
+                           (if old-value
+                               (cons it-key old-value)
+                             (list it-key))))))
     (let ((moves))
       (advent/map-hash moves-planned
                        (lambda (move elves)
-                         (print (format "Evaluating move %s elves: %s" move elves))
                          (if (= (length elves) 1)
                              (setq moves (cons (list (car elves) move) moves)))))
       moves)))
@@ -142,18 +141,47 @@ Rules is a cyclic list starting with the current rule"
 (defun day23/update-rules (state)
   "Update the counter for every elf"
   (let ((new-rules (make-hash-table)))
-    (advent/-each-hash
-        (advent/put new-rules it-key (1+ it-value)))
+    (advent/-each-hash (day23-state-rules state)
+      (advent/put new-rules it-key (1+ it-value)))
     (make-day23-state :rules new-rules
                       :elves (copy-hash-table (day23-state-elves state)))))
 
-(defun day23/step (state)
-  (let ((moves (day23/plan-elves-moves state (day23/get-rules state))))
-))
+(defun day23/move-elves (state moves)
+  (let ((new-elves (copy-hash-table (day23-state-elves state))))
+    (--each moves
+      (seq-let (src dest) it
+        (let ((rule-index (advent/get new-elves src)))
+          (remhash src new-elves)
+          (advent/put new-elves dest rule-index))))
+    (make-day23-state :elves new-elves
+                      :rules (day23-state-rules state))))
 
+(defun day23/step (state)
+  (if-let ((moves (day23/plan-elves-moves state (day23/get-rules state))))
+      (day23/update-rules (day23/move-elves state moves))
+    (day23/update-rules state)))
+
+(defun day23/evolve (state steps)
+  ;(day23/debug-print state)
+  (--dotimes steps
+    (setq state (day23/step state))
+    ;(day23/debug-print state)
+    )
+  state)
+
+(defun day23/rectangle-area (state)
+  (seq-let (min max) (day23/get-corners state)
+    (* (- (car max) (car min))
+       (- (cdr max) (cdr min)))))
+
+(defun day23/compute-empty (state)
+  (let ((n (advent/table-size (day23-state-elves state))))
+    (- (day23/rectangle-area state) n)))
 
 (defun day23/part-1 (lines)
-  (error "Not yet implemented"))
+  (day23/compute-empty
+   (day23/evolve (day23/read-problem lines)
+                 10)))
 
 (defun day23/part-2 (lines)
   (error "Not yet implemented"))
