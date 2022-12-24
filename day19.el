@@ -144,10 +144,11 @@ Assums no clay robot is present and that perfect production of clay robots and o
 
 (defun day19/evolve-state-resources-to-end (state)
   (let ((time-resources-evolution (car (last (day19/evolve-state-resources state)))))
-    (advent/assert (= (car time-resources-evolution) day19/total-time) "Invalid end time?")
-    (make-day19-state :resources (cadr time-resources-evolution)
-                      :robots (day19-state-robots state)
-                      :time (car time-resources-evolution))))
+    (if (= (car time-resources-evolution) day19/total-time)
+        state
+      (make-day19-state :resources (cadr time-resources-evolution)
+                        :robots (day19-state-robots state)
+                        :time (car time-resources-evolution)))))
 
 
 (defun day19/eta-for-robot (times-resources cost)
@@ -322,10 +323,10 @@ Assums no clay robot is present and that perfect production of clay robots and o
     (list best-score
           (-map #'rest (--take-while (= (car it) best-score) scored)))))
 
-(defun day19/accumulate (bprint state )
-  (let ((subchoices (list (list nil state)))
+(defun day19/accumulate (bprint state &optional path parent-score)
+  (let ((subchoices (list (list path state)))
         (stop)
-        (best-score most-positive-fixnum)
+        (best-score (or parent-score day19/total-time))
         (best-solutions))
     (while (not stop)
       (let ((new-choices (--mapcat (day19/subchoices bprint
@@ -340,8 +341,36 @@ Assums no clay robot is present and that perfect production of clay robots and o
           (setq best-score new-best-score)
           (setq best-solutions new-solutions)
           (setq subchoices (--filter (/= (caar it) day19/geo-index) new-choices))
-          (setq stop (not subchoices)))))    
+          (setq stop (not subchoices)))))
     (list best-score best-solutions)))
+
+(defun day19/get-any-subchoice-score (subchoices)
+  (let ((first-good-state (cadar subchoices)))
+    (elt (day19-state-resources (day19/evolve-state-resources-to-end first-good-state))
+         day19/geo-index)))
+
+(defun day19/find-blueprint-efficiency (bprint state)
+  (seq-let (best-score paths-states)
+      (day19/accumulate bprint (day19/create-starting-state))
+    (let ((stop))
+      (while (not stop)
+        (let ((best-local-score day19/total-time)
+              (local-subchoices))
+         (-each paths-states
+           (lambda (path-state)
+             (seq-let (batch-score batch-subchoices)
+                 (day19/accumulate bprint (cadr path-state) (car path-state) best-local-score)
+               (if (and batch-score (= batch-score best-local-score))
+                   (setq local-subchoices (append batch-subchoices local-subchoices))
+                 (setq best-local-score batch-score)
+                 (setq local-subchoices batch-subchoices)))))
+         (if (not local-subchoices)
+             (setq stop t)
+           (setq best-score best-local-score)
+           (setq paths-states local-subchoices)))))
+    (print (format "Best score: %s" best-score))
+    (print (format "Result: %s" paths-states))
+    (day19/get-any-subchoice-score paths-states)))
 
 (defun day19/part-1 (lines)
   (error "Not yet implemented"))
