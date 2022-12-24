@@ -5,6 +5,8 @@
 (defconst example (advent/read-problem-lines 24 :example))
 (defconst problem (advent/read-problem-lines 24 :problem))
 
+(defconst day24/starting-pos (cons 0 1))
+
 (defun day24/char-to-grid (char)
   (cond
    ((string= char "#") :wall)
@@ -13,6 +15,12 @@
    ((string= char "<") '(0 . -1))
    ((string= char "v") '(1 . 0))
    ((string= char "^") '(-1 . 0))))
+
+(defconst day24/moves (list '(0 . 0)
+                            '(1 . 0)
+                            '(-1 . 0)
+                            '(0 . 1)
+                            '(0 . -1)))
 
 (defun day24/add-to-map (map key value)
   (advent/update map key (lambda (key old-value)
@@ -117,12 +125,53 @@
 (defun day24/get-extremes (map-data)
   "Returns a list of start position and end position"
   (let ((size (plist-get map-data :size)))
-    (list (cons 0 1)
+    (list day24/starting-pos
           (cons (1- (car size)) (- (cdr size) 2)))))
 
 (defstruct day24-state "Status of the simulation"
            time
            pos)
+
+(defun day24/create-starting-state ()
+  (make-day24-state :time 0
+                    :pos day24/starting-pos))
+
+(defun day24/get-possible-moves (cache state)
+  (let* ((now (day24-state-time state))
+         (pos (day24-state-pos state))
+         (next-data (day24/get-map cache (1+ now)))
+         (next-map (plist-get next-data :map))
+         (size (plist-get next-data :size)))
+    (--filter (and (>= (car it) 0)
+                   (< (car it) (car size)))
+     (--filter (not (advent/get next-map it))
+               (--map (day24/sum-coord it pos) day24/moves)))))
+
+(defun day24/next-moves (cache state)
+  (let ((possible-moves)
+        (now (day24-state-time state)))
+    (--map (make-day24-state :pos it
+                             :time (1+ now))
+           (day24/get-possible-moves cache state))))
+
+(defun day24/evolve-simulation (map-data)
+  "First breadth first approach"
+  (let ((moves (list (day24/create-starting-state)))
+        (end-position (cadr (day24/get-extremes map-data)))
+        (cache (day24/create-cache map-data))
+        (time 0)
+        (stop))
+    (while (not stop)
+      (when (= (mod time 10) 9)
+        (print (format "moves: %d (cache size=%d)" (length moves) (advent/table-size cache)))
+        (sit-for 0.01))
+      (setq moves (--mapcat (day24/next-moves cache it) moves))
+      (when (--any (equal (day24-state-pos it) end-position) moves)
+        (setq stop t))
+      (setq time (1+ time)))
+    time))
+
+
 
 (defun day24/part-1 (lines)
   (error "Not yet implemented"))
