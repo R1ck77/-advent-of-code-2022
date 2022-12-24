@@ -14,12 +14,18 @@
    ((string= char "v") '(1 . 0))
    ((string= char "^") '(-1 . 0))))
 
+(defun day24/add-to-map (map key value)
+  (advent/update map key (lambda (key old-value)
+                           (if (eq value :wall)
+                               :wall
+                             (cons value old-value)))))
+
 (defun day24/read-problem (lines)
   (let ((map (advent/table))
         (grid (advent/lines-to-grid lines #'day24/char-to-grid)))
     (advent/-each-grid grid
       (unless (eq it-value :empty)
-        (advent/put map it-coord it-value)))
+        (day24/add-to-map map it-coord it-value)))
     (list :map map
           :size (advent/get-grid-size grid))))
 
@@ -27,11 +33,12 @@
   (cond
    ((eq el :wall) "#")
    ((eq el :empty) ".")
-   ((equal el '(0 . 1)) ">")
-   ((equal el '(0 . -1)) "<")
-   ((equal el '(1 . 0)) "v")
-   ((equal el '(-1 . 0)) "^")
-   (t (error "Unexpected element"))))
+   ((equal el '((0 . 1))) ">")
+   ((equal el '((0 . -1))) "<")
+   ((equal el '((1 . 0))) "v")
+   ((equal el '((-1 . 0))) "^")
+   ((<= (length el) 4) (number-to-string (length el)))
+   (t (error "Unexpected value for the grid"))))
 
 (defun day24/debug-print-map (map-data)
   (let ((rows-columns (plist-get map-data :size))
@@ -62,18 +69,23 @@
      ((equal value '(1 . 0)) (cons 1 column ))
      ((equal value '(-1 . 0)) (cons (- rows 2) column))
      ((equal value '(0 . 1)) (cons row 1))
-     ((equal value '(0 . -1)) (cons row (- column 2))))))
+     ((equal value '(0 . -1)) (cons row (- columns 2))))))
 
-(defun day24/evolve-element! (old-data new-map coord value)
+(defun day24/evolve-element! (old-data new-map coord values)
   (let ((size (plist-get old-data :size))
         (old-map (plist-get old-data :map)))
    (if (eq value :wall)
        ;; Walls are unchanging
-       (advent/put new-map coord value)
-     (let ((new-coord (day24/sum-coord coord value)))
-       (if (eq (advent/get old-map new-coord) :wall)
-           (advent/put new-map (day24/wrap-blizzard size  new-coord value) value)
-         (advent/put new-map new-coord value))))))
+       (advent/put new-map coord value)     
+     (let ((new-coords-value (--map (list (day24/sum-coord coord it) it) values)))
+       (-each new-coords-value         
+         (lambda (new-coord-value)
+           (if (eq (advent/get old-map (car new-coord-value)) :wall)
+               (day24/add-to-map new-map (day24/wrap-blizzard size
+                                                              (car new-coord-value)
+                                                              (cadr new-coord-value))
+                                 (cadr new-coord-value))
+             (day24/add-to-map new-map (car new-coord-value) (cadr new-coord-value)))))))))
 
 (defun day24/evolve-map (map-data)
   (let ((new-map (advent/table))
