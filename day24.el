@@ -203,15 +203,16 @@ Among all nodes with this specific, get the ones with the smallest time"
                          (min next-value (or old-value next-value)))))
       nodes))
 (defun day24/one-path-dijkstra (map-data &optional verbose)
-  (day24/dijkstra map-data (day24/create-starting-state)
-                  (cadr (day24/get-extremes map-data))
-                  verbose))
+  (let ((cache (day24/create-cache map-data)))
+   (day24-state-time
+    (day24/dijkstra cache
+                    (day24/create-starting-state)
+                    (cadr (day24/get-extremes map-data))
+                    verbose))))
 
-(defun day24/dijkstra (map-data start-state destination-pos &optional verbose)  
-  (let* ((cache (day24/create-cache map-data))
-         (nodes (day24/create-available-nodes cache start-state))
+(defun day24/dijkstra (cache start-state destination-pos &optional verbose)
+  (let* ((nodes (day24/create-available-nodes cache start-state))
          (current-node start-state)
-         (destination-pos (cadr (day24/get-extremes map-data)))
          (destination-reached nil)
          (next-node nil)
          (debug-last-sampling (time-to-seconds (current-time))))    
@@ -234,7 +235,7 @@ Among all nodes with this specific, get the ones with the smallest time"
         (setq current-node next-node)))
     ;; Return the time for reaching the destination
     (if destination-reached
-        (day24-state-time next-node)
+        next-node
       (error "The algorithm failed =("))))
 
 
