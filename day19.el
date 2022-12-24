@@ -5,7 +5,10 @@
 (defconst example (advent/read-problem-lines 19 :example))
 (defconst problem (advent/read-problem-lines 19 :problem))
 
-(defconst day19/total-time 24)
+(defconst day19/part-1-total-time 24)
+(defconst day19/part-2-total-time 32)
+(defvar day19/*total-time* day19/part-1-total-time)
+
 
 (defconst day19/ore-index 0)
 (defconst day19/clay-index 1)
@@ -130,7 +133,7 @@ Assums no clay robot is present and that perfect production of clay robots and o
 (defun day19/evolve-resources (now current robots)
   "Evolve the resources with the status quo until day 24"
   (let ((evolution (list (list now current))))
-    (--dotimes (- day19/total-time now)
+    (--dotimes (- day19/*total-time* now)
       (setq now (1+ now))
       (setq current (day19/compute-new-resources current robots '(0 0 0 0)))
       (setq evolution (cons (list now current) evolution)))
@@ -143,7 +146,7 @@ Assums no clay robot is present and that perfect production of clay robots and o
                           (day19-state-robots state)))
 
 (defun day19/evolve-state-resources-to-end (state)
-  (if (= (day19-state-time state) day19/total-time)
+  (if (= (day19-state-time state) day19/*total-time*)
       state
    (let ((time-resources-evolution (car (last (day19/evolve-state-resources state)))))    
      (make-day19-state :resources (cadr time-resources-evolution)
@@ -201,13 +204,13 @@ Assums no clay robot is present and that perfect production of clay robots and o
 
 (defun day19/maximum-ideal-result (state production-delay)
   (let ((actual-production (elt (day19-state-resources (day19/evolve-state-resources-to-end state)) day19/geo-index))
-        (available-time (- day19/total-time (day19-state-time state) production-delay)))
+        (available-time (- day19/*total-time* (day19-state-time state) production-delay)))
     (+ actual-production (/ (* available-time (1- available-time)) 2))))
 
 (defun day19/ideal-result (bprint state)
   (let ((delay (day19/compute-production-delay bprint state))
         (now (day19-state-time state)))
-    (let ((result (if (> (+ delay now) day19/total-time)
+    (let ((result (if (> (+ delay now) day19/*total-time*)
                (elt (day19-state-resources (day19/evolve-state-resources-to-end state)) day19/geo-index)
                (day19/maximum-ideal-result state delay))
                   ))
@@ -323,7 +326,7 @@ Assums no clay robot is present and that perfect production of clay robots and o
 (defun day19/accumulate (bprint state &optional path parent-score)
   (let ((subchoices (list (list path state)))
         (stop)
-        (best-score (or parent-score day19/total-time))
+        (best-score (or parent-score day19/*total-time*))
         (best-solutions))
     (while (not stop)
       (let ((new-choices (--mapcat (day19/subchoices bprint
@@ -358,7 +361,7 @@ Assums no clay robot is present and that perfect production of clay robots and o
     (sit-for 0.01)
     (let ((stop (not paths-states)))
       (while (not stop)
-        (let ((best-local-score day19/total-time)
+        (let ((best-local-score day19/*total-time*)
               (local-subchoices))
          (-each paths-states
            (lambda (path-state)
@@ -388,10 +391,15 @@ Assums no clay robot is present and that perfect production of clay robots and o
                    blueprints)))
 
 (defun day19/part-1 (lines)
+  (setq day19/*total-time* day19/part-1-total-time)
   (day19/compute-quality-level-value (day19/read-problem lines)))
 
+(defun day19/compute-quality-product (blueprints)
+  (apply #'* (--map (day19/find-blueprint-efficiency it) blueprints)))
+
 (defun day19/part-2 (lines)
-  (error "Not yet implemented"))
+  (setq day19/*total-time* day19/part-2-total-time)
+  (day19/compute-quality-product (-take 3 (day19/read-problem lines))))
 
 (provide 'day19)
 
