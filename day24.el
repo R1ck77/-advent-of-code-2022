@@ -6,6 +6,7 @@
 (defconst problem (advent/read-problem-lines 24 :problem))
 
 (defconst day24/starting-pos (cons 0 1))
+(defconst day24/inf most-positive-fixnum)
 
 (defun day24/char-to-grid (char)
   (cond
@@ -170,6 +171,77 @@
         (setq stop t))
       (setq time (1+ time)))
     time))
+
+(defun day24/distance (state dest-pos)
+  (let ((pos-a (day24-state-pos state)))
+    (+ (abs (- (car pos-a) (car dest-pos)))
+       (abs (- (cdr pos-a) (cdr dest-pos))))))
+
+(defun day24/expand-nodes (cache nodes node)
+  (let ((next-moves (day24/next-moves cache node)))
+    (--each next-moves
+            (advent/put nodes it 1))
+      nodes))
+
+(defun day24/create-available-nodes (cache)
+  (let* ((starting-state (day24/create-starting-state))
+        (nodes (advent/table))) ;;TODO/FIXME a balanced tree would be better
+    (advent/put nodes starting-state 0)
+    ;; Add the nearest neighbors
+    (day24/expand-nodes cache nodes starting-state)))
+
+(defun day24/minimize-f (f-time-state-a f-time-state-b)
+  (seq-let (a-f a-time _) f-time-state-a
+    (seq-let (b-f b-time _) f-time-state-b
+      (or (< a-f b-f)
+          (and (= a-f b-f)
+               (< a-time b-time))))))
+
+(defun day24/select-next-node (cache nodes destination-pos current-node)
+  "Select the node that minimizes the distance from the target
+
+Among all nodes with this specific, get the ones with the smallest time"
+  (let* ((next-node)
+        (next-s)
+        (now (day24-state-time current-node))))
+  (seq-let (f time state)
+      (car (-sort #'day24/minimize-f
+                  (--filter (not (equal (elt it 2) current-node))
+                   (advent/map-hash nodes (lambda (state g)
+                                            (list (+ g (day24/distance state destination-pos)) ; g + h
+                                                  (day24-state-time state) ;time
+                                                  state))))))
+    state))
+
+;; 435 too high
+(defun day24/dijkstra (map-data)  
+  (let* ((cache (day24/create-cache map-data))
+         (nodes (day24/create-available-nodes cache))
+         (current-node (day24/create-starting-state))
+         (destination-pos (cadr (day24/get-extremes map-data)))
+         (destination-reached nil)
+         (next-node nil)
+         (debug-last-sampling (time-to-seconds (current-time))))    
+    (while (and (not destination-reached)
+                (setq next-node (day24/select-next-node cache nodes destination-pos current-node)))
+      (when-let ((now (time-to-seconds (current-time)))
+                 (do-measure (> (- now debug-last-sampling) 1)))
+        (setq debug-last-sampling now)        
+        (print (format "next: %s Distance:%d" next-node (day24/distance next-node destination-pos)))
+        (sit-for 0.01))
+      
+      (if (equal (day24-state-pos next-node) destination-pos)
+          ;; Huzzah!
+          (setq destination-reached t)
+        ;; Expand the list of nodes with the neighbors of the next node
+        (day24/expand-nodes cache nodes next-node)
+        ;; Remove the current node from the list of available nodes
+        (remhash current-node nodes)
+        (setq current-node next-node)))
+    ;; Return the time for reaching the destination
+    (if destination-reached
+        (day24-state-time next-node)
+      (error "The algorithm failed =("))))
 
 
 
