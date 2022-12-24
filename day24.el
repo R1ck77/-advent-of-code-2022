@@ -155,38 +155,20 @@
                              :time (1+ now))
            (day24/get-possible-moves cache state))))
 
-(defun day24/evolve-simulation (map-data)
-  "First breadth first approach"
-  (let ((moves (list (day24/create-starting-state)))
-        (end-position (cadr (day24/get-extremes map-data)))
-        (cache (day24/create-cache map-data))
-        (time 0)
-        (stop))
-    (while (not stop)
-      (when (= (mod time 10) 9)
-        (print (format "moves: %d (cache size=%d)" (length moves) (advent/table-size cache)))
-        (sit-for 0.01))
-      (setq moves (--mapcat (day24/next-moves cache it) moves))
-      (when (--any (equal (day24-state-pos it) end-position) moves)
-        (setq stop t))
-      (setq time (1+ time)))
-    time))
-
 (defun day24/distance (state dest-pos)
   (let ((pos-a (day24-state-pos state)))
     (+ (abs (- (car pos-a) (car dest-pos)))
        (abs (- (cdr pos-a) (cdr dest-pos))))))
 
 (defun day24/expand-nodes (cache nodes node)
-  (let ((next-moves (day24/next-moves cache node)))
+  (let ((next-moves (day24/next-moves cache node))
+        (next-value (1+ (day24-state-time node))))
     (--each next-moves
-            (advent/put nodes it 1))
+            (advent/put nodes it next-value))
       nodes))
 
-(defun day24/create-available-nodes (cache)
-  (let* ((starting-state (day24/create-starting-state))
-        (nodes (advent/table))) ;;TODO/FIXME a balanced tree would be better
-    (advent/put nodes starting-state 0)
+(defun day24/create-available-nodes (cache starting-state)
+  (let* ((nodes (advent/table))) ;;TODO/FIXME a balanced tree would be better
     ;; Add the nearest neighbors
     (day24/expand-nodes cache nodes starting-state)))
 
@@ -206,25 +188,37 @@ Among all nodes with this specific, get the ones with the smallest time"
         (now (day24-state-time current-node))))
   (seq-let (f time state)
       (car (-sort #'day24/minimize-f
-                  (--filter (not (equal (elt it 2) current-node))
-                   (advent/map-hash nodes (lambda (state g)
-                                            (list (+ g (day24/distance state destination-pos)) ; g + h
-                                                  (day24-state-time state) ;time
-                                                  state))))))
+                  (advent/map-hash nodes (lambda (state g)
+                                           (list (+ g (day24/distance state destination-pos)) ; g + h
+                                                 (day24-state-time state) ;time
+                                                 state)))))
     state))
 
-;; 435 too high
-(defun day24/dijkstra (map-data)  
+(defun day24/update-nodes (cache nodes node)
+  (let ((next-moves (day24/next-moves cache node))
+        (next-value (1+ (day24-state-time node))))
+      (--each next-moves
+        (advent/update nodes it
+                       (lambda (key old-value)
+                         (min next-value (or old-value next-value)))))
+      nodes))
+(defun day24/one-path-dijkstra (map-data &optional verbose)
+  (day24/dijkstra map-data (day24/create-starting-state)
+                  (cadr (day24/get-extremes map-data))
+                  verbose))
+
+(defun day24/dijkstra (map-data start-state destination-pos &optional verbose)  
   (let* ((cache (day24/create-cache map-data))
-         (nodes (day24/create-available-nodes cache))
-         (current-node (day24/create-starting-state))
+         (nodes (day24/create-available-nodes cache start-state))
+         (current-node start-state)
          (destination-pos (cadr (day24/get-extremes map-data)))
          (destination-reached nil)
          (next-node nil)
          (debug-last-sampling (time-to-seconds (current-time))))    
     (while (and (not destination-reached)
                 (setq next-node (day24/select-next-node cache nodes destination-pos current-node)))
-      (when-let ((now (time-to-seconds (current-time)))
+      (when-let ((_ verbose)
+                 (now (time-to-seconds (current-time)))
                  (do-measure (> (- now debug-last-sampling) 1)))
         (setq debug-last-sampling now)        
         (print (format "next: %s Distance:%d" next-node (day24/distance next-node destination-pos)))
@@ -234,7 +228,7 @@ Among all nodes with this specific, get the ones with the smallest time"
           ;; Huzzah!
           (setq destination-reached t)
         ;; Expand the list of nodes with the neighbors of the next node
-        (day24/expand-nodes cache nodes next-node)
+        (day24/update-nodes cache nodes next-node)
         ;; Remove the current node from the list of available nodes
         (remhash current-node nodes)
         (setq current-node next-node)))
@@ -246,7 +240,7 @@ Among all nodes with this specific, get the ones with the smallest time"
 
 
 (defun day24/part-1 (lines)
-  (error "Not yet implemented"))
+  (day24/one-path-dijkstra (day24/read-problem lines)))
 
 (defun day24/part-2 (lines)
   (error "Not yet implemented"))
