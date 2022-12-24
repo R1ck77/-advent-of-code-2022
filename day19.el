@@ -143,12 +143,12 @@ Assums no clay robot is present and that perfect production of clay robots and o
                           (day19-state-robots state)))
 
 (defun day19/evolve-state-resources-to-end (state)
-  (let ((time-resources-evolution (car (last (day19/evolve-state-resources state)))))
-    (if (= (car time-resources-evolution) day19/total-time)
-        state
-      (make-day19-state :resources (cadr time-resources-evolution)
-                        :robots (day19-state-robots state)
-                        :time (car time-resources-evolution)))))
+  (if (= (day19-state-time state) day19/total-time)
+      state
+   (let ((time-resources-evolution (car (last (day19/evolve-state-resources state)))))    
+     (make-day19-state :resources (cadr time-resources-evolution)
+                       :robots (day19-state-robots state)
+                       :time (car time-resources-evolution)))))
 
 
 (defun day19/eta-for-robot (times-resources cost)
@@ -349,10 +349,16 @@ Assums no clay robot is present and that perfect production of clay robots and o
     (elt (day19-state-resources (day19/evolve-state-resources-to-end first-good-state))
          day19/geo-index)))
 
-(defun day19/find-blueprint-efficiency (bprint state)
+(defun day19/find-blueprint-efficiency (bprint)
+  (print (format "Blueprint: %s" bprint))
+  (sit-for 0.1)
   (seq-let (best-score paths-states)
       (day19/accumulate bprint (day19/create-starting-state))
-    (let ((stop))
+    (print "*** Starting states:")
+    (--each paths-states
+      (print it))
+    (sit-for 0.1)
+    (let ((stop (not paths-states)))
       (while (not stop)
         (let ((best-local-score day19/total-time)
               (local-subchoices))
@@ -368,12 +374,23 @@ Assums no clay robot is present and that perfect production of clay robots and o
              (setq stop t)
            (setq best-score best-local-score)
            (setq paths-states local-subchoices)))))
-    (print (format "Best score: %s" best-score))
-    (print (format "Result: %s" paths-states))
-    (day19/get-any-subchoice-score paths-states)))
+    (if (not paths-states)
+      (progn
+        (print (format "score: 0 details = NO SOLUTION"))
+        0)
+      (print (format "score: %s details = %s"
+                     (day19/get-any-subchoice-score paths-states)
+                     (car paths-states)))
+      (sit-for 0.1)
+      (day19/get-any-subchoice-score paths-states))))
+
+(defun day19/compute-quality-level-value (blueprints)
+  (apply #'+ (--map (* (day19-bprint-id it)
+                      (day19/find-blueprint-efficiency it))
+                   blueprints)))
 
 (defun day19/part-1 (lines)
-  (error "Not yet implemented"))
+  (day19/compute-quality-level-value (day19/read-problem lines)))
 
 (defun day19/part-2 (lines)
   (error "Not yet implemented"))
