@@ -272,8 +272,8 @@ Assums no clay robot is present and that perfect production of clay robots and o
   (if (eq (car path) day19/geo-index)
       ;; don't evolve this: just return the time required or nil
       (let ((result (day19-state-time current-state)))
-        (when (< result *best*)
-            (print (format "%s %s" path current-state))
+        (when (<= result *best*)
+            (print (format "%s %s" (reverse path) current-state))
             (sit-for 0.1)            
             (setq *best* result))
         result)
@@ -286,10 +286,62 @@ Assums no clay robot is present and that perfect production of clay robots and o
                                                               (car it))
                                1000))
                      (--filter (and (cadr it)
-                                   (< (day19-state-time (cadr it)) *best*))
+                                   (<= (day19-state-time (cadr it)) *best*))
                                (--map (list (cons it path) (day19/jump-state-to-construction bprint current-state it))
                                       (reverse day19/indices)))))
       ))))
+
+(defun day19/filter-bad-combinations (best-score-yet path-state)
+  (seq-let (path new-state) path-state
+    (if new-state
+        (let ((time (day19-state-time new-state)))
+          (or
+           ;; Either this produces a geode extracting robot and the score is less OR EQUAL
+           (and (= (car path) day19/geo-index)                         
+                (<= time best-score-yet))
+           ;; Or the current time is *stricly* less than the best score so far
+           (< time best-score-yet))))))
+
+(defun day19/subchoices (bprint last-state best-score-yet path)
+  (let ((sub-paths (--map (cons it path) (reverse day19/indices))))
+    (--filter (day19/filter-bad-combinations best-score-yet it) 
+              (--map (list it (day19/jump-state-to-construction bprint last-state (car it)))
+                     sub-paths))))
+
+(defun day19/score-subchoices (subchoices)
+  (--sort (< (car it) (car other))
+                         (-map (lambda (path-state)
+                                 (seq-let (path state) path-state
+                                   (list (day19-state-time state)(car path-state) (cadr path-state))))
+                               subchoices)))
+
+(defun day19/merge-ended-paths (best-score-yet best-solutions-yet subchoices)
+  (let* ((ended (--filter (= (caar it) day19/geo-index) subchoices))
+         (scored (day19/score-subchoices (append ended best-solutions-yet)))
+         (best-score (or (caar scored) best-score-yet)))
+    (list best-score
+          (-map #'rest (--take-while (= (car it) best-score) scored)))))
+
+(defun day19/accumulate (bprint state )
+  (let ((subchoices (list (list nil state)))
+        (stop)
+        (best-score most-positive-fixnum)
+        (best-solutions))
+    (while (not stop)
+      (let ((new-choices (--mapcat (day19/subchoices bprint
+                                                     (cadr it)
+                                                     best-score
+                                                     (car it))
+                                   subchoices)))
+        (seq-let (new-best-score new-solutions)
+            (day19/merge-ended-paths best-score
+                                     best-solutions
+                                     new-choices)
+          (setq best-score new-best-score)
+          (setq best-solutions new-solutions)
+          (setq subchoices (--filter (/= (caar it) day19/geo-index) new-choices))
+          (setq stop (not subchoices)))))    
+    (list best-score best-solutions)))
 
 (defun day19/part-1 (lines)
   (error "Not yet implemented"))
@@ -299,4 +351,3 @@ Assums no clay robot is present and that perfect production of clay robots and o
 
 (provide 'day19)
 
-(day19/optimize-next-geo-robot (car e) (day19/create-starting-state))
