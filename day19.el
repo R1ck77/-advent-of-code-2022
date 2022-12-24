@@ -236,9 +236,6 @@ Assums no clay robot is present and that perfect production of clay robots and o
 (defvar *best-result* )
 
 (defun day19/search-best (bprint state path last-state)
-  (comment
-    (print (reverse path))
-    (sit-for 0.01))
   (advent/assert state "nil state?")
   (let ((score-state-path-list (day19/next-combinations bprint state path (or last-state state))))
     (if score-state-path-list
@@ -352,12 +349,13 @@ Assums no clay robot is present and that perfect production of clay robots and o
 (defun day19/find-blueprint-efficiency (bprint)
   (print (format "Blueprint: %s" bprint))
   (sit-for 0.1)
+  
   (seq-let (best-score paths-states)
       (day19/accumulate bprint (day19/create-starting-state))
-    (print "*** Starting states:")
+    (print "*** Starting states:")  
     (--each paths-states
       (print it))
-    (sit-for 0.1)
+    (sit-for 0.01)
     (let ((stop (not paths-states)))
       (while (not stop)
         (let ((best-local-score day19/total-time)
