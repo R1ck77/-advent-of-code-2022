@@ -97,8 +97,32 @@
     (list :map new-map
           :size (plist-get map-data :size))))
 
+(defun day24/create-cache (map-data)
+  (let ((cache (make-hash-table)))
+    (advent/put cache 0 map-data)))
+
+(defun day24/get-map (cache day)
+  (if-let ((cached-value (advent/get cache day)))
+      cached-value
+    (let ((previous-value (advent/get cache (1- day)))
+          (new-value))
+      (advent/assert previous-value "Did I skip a day? :|")
+      (setq new-value (day24/evolve-map previous-value))
+      (advent/put cache day new-value)
+      new-value)))
+
 (setq e (day24/read-problem example))
 (setq p (day24/read-problem problem))
+
+(defun day24/get-extremes (map-data)
+  "Returns a list of start position and end position"
+  (let ((size (plist-get map-data :size)))
+    (list (cons 0 1)
+          (cons (1- (car size)) (- (cdr size) 2)))))
+
+(defstruct day24-state "Status of the simulation"
+           time
+           pos)
 
 (defun day24/part-1 (lines)
   (error "Not yet implemented"))
