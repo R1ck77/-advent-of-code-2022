@@ -41,6 +41,30 @@ If arg is nil, returns nil without evaluating anything else"
   (remhash key table)
   table)
 
+(defun advent/update (table key f &optional default)
+  "Update the value of the table at 'key'.
+
+f accepts two arguments: the key and the old value (or 
+default is none is present)"
+  (advent/put table
+              key
+              (funcall f key (advent/get table key default))))
+
+(defmacro advent/-update (table key forms &optional default)
+  "Anaphoric form of advent/update.
+
+Values are bound to it-key and it-value"
+  (let ((table-sym (make-symbol "table"))
+        (key-sym (make-symbol "key"))
+        (f-key-sym (make-symbol "f-key"))
+        (f-value-sym (make-symbol "f-value")))
+    `(let ((,key-sym ,key)
+           (,table-sym ,table))
+       (advent/update ,table-sym
+                      ,key-sym
+                      (lambda (,f-key-sym ,f-value-sym) ,@forms)
+                      ,default))))
+
 (defun advent/set-from (items &optional value)
   "Create a set of the items in the input list.
 
