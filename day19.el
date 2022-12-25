@@ -75,12 +75,6 @@
 (defun day19/op (f v1 v2)
   (--map (funcall f (car it) (cdr it)) (-zip v1 v2)))
 
-(defun day19/minimum-turns-before-construction (cost)
-  "Time required to have resources >= res starting without robots.
-
-It assumes - ideally - that all the resources to build infinite robots are present"
-  (ceiling (/ (1- (sqrt (+ 1 (* 8 cost)))) 2)))
-
 (defstruct day19-state "Simulation state"
            resources
            robots
@@ -167,6 +161,7 @@ It assumes - ideally - that all the resources to build infinite robots are prese
           )
         score)
     (let* ((robots (day19-state-robots state))
+           (costs (day19-bprint-costs bprint))
            (next-moves (cond
                        ;; no clay robots
                        ((zerop (elt robots day19/clay-index)) '(0 1))
@@ -175,11 +170,10 @@ It assumes - ideally - that all the resources to build infinite robots are prese
                        ;; Anything goes
                        (t '(3 2 1 0)))))
       (if (>= (elt robots day19/ore-index)
-              (apply #'max (--map (elt it day19/ore-index)
-                                  (day19-bprint-costs bprint))))
+              (apply #'max (-map #'car (cdr costs))))
           (setq next-moves (-remove-item day19/ore-index next-moves)))
       (if (>= (elt robots day19/clay-index)
-              (elt (elt (day19-bprint-costs bprint) day19/obs-index) day19/clay-index))
+              (elt (elt costs day19/obs-index) day19/clay-index))
           (setq next-moves (-remove-item day19/clay-index next-moves)))      
       (apply #'max (or (--map (day19/recursive bprint it max-time)
                            (--filter it ; impossible results are not interesting
