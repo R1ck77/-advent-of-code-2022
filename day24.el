@@ -1,6 +1,8 @@
+;; -*- lexical-binding: t -*-
 (require 'dash)
 (require 'advent-utils)
 (require 's)
+(require 'avl-tree)
 
 (defconst example (advent/read-problem-lines 24 :example))
 (defconst problem (advent/read-problem-lines 24 :problem))
@@ -83,9 +85,9 @@
 (defun day24/evolve-element! (old-data new-map coord values)
   (let ((size (plist-get old-data :size))
         (old-map (plist-get old-data :map)))
-   (if (eq value :wall)
+   (if (eq values :wall)
        ;; Walls are unchanging
-       (advent/put new-map coord value)     
+       (advent/put new-map coord values)     
      (let ((new-coords-value (--map (list (day24/sum-coord coord it) it) values)))
        (-each new-coords-value         
          (lambda (new-coord-value)
@@ -160,15 +162,27 @@
     (+ (abs (- (car pos-a) (car dest-pos)))
        (abs (- (cdr pos-a) (cdr dest-pos))))))
 
-(defun day24/expand-nodes (cache nodes node)
-  (let ((next-moves (day24/next-moves cache node))
-        (next-value (1+ (day24-state-time node))))
+(defun day24/expand-nodes (cache nodes-tree node)
+  (let ((next-moves (day24/next-moves cache node)))
     (--each next-moves
-            (advent/put nodes it next-value))
-      nodes))
+      (avl-tree-enter nodes-tree it))
+    nodes-tree))
 
-(defun day24/create-available-nodes (cache starting-state)
-  (let* ((nodes (advent/table))) ;;TODO/FIXME a balanced tree would be better
+(defun day24/hash (state-a)
+  (let ((pos (day24-state-pos state-a)))
+    (+ (car pos) (* 1000000 (cdr pos)))))
+
+(defun day24/create-avl-tree-comparator (end-pos)
+  (lambda (state-a state-b)
+    (let ((sum-a (+ (day24/distance state-a end-pos) (day24-state-time state-a)))
+          (sum-b (+ (day24/distance state-b end-pos) (day24-state-time state-b))))
+      (or (< sum-a sum-b)
+          (and (= sum-a sum-b)
+               (< (day24/hash state-a)
+                  (day24/hash state-b)))))))
+
+(defun day24/create-available-nodes (cache starting-state end-pos)
+  (let* ((nodes (avl-tree-create (day24/create-avl-tree-comparator end-pos))))
     ;; Add the nearest neighbors
     (day24/expand-nodes cache nodes starting-state)))
 
@@ -179,29 +193,17 @@
           (and (= a-f b-f)
                (< a-time b-time))))))
 
-(defun day24/select-next-node (cache nodes destination-pos current-node)
+(defun day24/select-next-node (nodes-tree current-node)
   "Select the node that minimizes the distance from the target
 
 Among all nodes with this specific, get the ones with the smallest time"
-  (let* ((next-node)
-        (next-s)
-        (now (day24-state-time current-node))))
-  (seq-let (f time state)
-      (car (-sort #'day24/minimize-f
-                  (advent/map-hash nodes (lambda (state g)
-                                           (list (+ g (day24/distance state destination-pos)) ; g + h
-                                                 (day24-state-time state) ;time
-                                                 state)))))
-    state))
+  (avl-tree-delete nodes-tree current-node)
+  (avl-tree-first nodes-tree))
 
-(defun day24/update-nodes (cache nodes node)
-  (let ((next-moves (day24/next-moves cache node))
-        (next-value (1+ (day24-state-time node))))
-      (--each next-moves
-        (advent/update nodes it
-                       (lambda (key old-value)
-                         (min next-value (or old-value next-value)))))
-      nodes))
+(defun day24/update-nodes (cache nodes-tree node)
+  (--each (day24/next-moves cache node)
+    (avl-tree-enter nodes-tree it)))
+
 (defun day24/one-path-dijkstra (map-data &optional verbose)
   (let ((cache (day24/create-cache map-data)))
    (day24-state-time
@@ -211,13 +213,13 @@ Among all nodes with this specific, get the ones with the smallest time"
                     verbose))))
 
 (defun day24/dijkstra (cache start-state destination-pos &optional verbose)
-  (let* ((nodes (day24/create-available-nodes cache start-state))
+  (let* ((nodes-tree (day24/create-available-nodes cache start-state destination-pos))
          (current-node start-state)
          (destination-reached nil)
          (next-node nil)
          (debug-last-sampling (time-to-seconds (current-time))))    
     (while (and (not destination-reached)
-                (setq next-node (day24/select-next-node cache nodes destination-pos current-node)))
+                (setq next-node (day24/select-next-node nodes-tree current-node)))
       (when-let ((_ verbose)
                  (now (time-to-seconds (current-time)))
                  (do-measure (> (- now debug-last-sampling) 1)))
@@ -229,9 +231,9 @@ Among all nodes with this specific, get the ones with the smallest time"
           ;; Huzzah!
           (setq destination-reached t)
         ;; Expand the list of nodes with the neighbors of the next node
-        (day24/update-nodes cache nodes next-node)
+        (day24/update-nodes cache nodes-tree next-node)
         ;; Remove the current node from the list of available nodes
-        (remhash current-node nodes)
+        (avl-tree-delete nodes-tree current-node)
         (setq current-node next-node)))
     ;; Return the time for reaching the destination
     (if destination-reached
