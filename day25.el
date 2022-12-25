@@ -50,10 +50,11 @@
                                    (day25/get-largest-digit decimal))))))
 
 (defun day25/decimal-to-snafu (decimal)
-  (apply #'concat (reverse (day25/decimal-to-snafu-digits decimal))))
+  (apply #'concat (--drop-while (string= it "0") (reverse (day25/decimal-to-snafu-digits decimal)))))
 
 (defun day25/part-1 (lines)
-  (apply #'+ (-map #'day25/snafu-to-decimal lines))
+  (day25/decimal-to-snafu
+   (apply #'+ (-map #'day25/snafu-to-decimal lines)))
 )
 
 (defun day25/part-2 (lines)

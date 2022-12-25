@@ -47,8 +47,7 @@
   (describe "part 1"
     (it "replicates the example"
       (expect (day25/part-1 (advent/read-problem-lines 25 :example))
-              :to-be "2=-1=0"))
-    (xit "solves the problem"
+              :to-equal "2=-1=0"))
+    (it "solves the problem"
       (expect (day25/part-1 (advent/read-problem-lines 25 :problem))
-              :to-be 42)))
-  )
+              :to-equal "2-21=02=1-121-2-11-0"))))
