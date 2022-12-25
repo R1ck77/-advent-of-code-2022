@@ -397,6 +397,44 @@ Assums no clay robot is present and that perfect production of clay robots and o
 (defun day19/compute-quality-product (blueprints)
   (apply #'* (--map (day19/find-blueprint-efficiency it) blueprints)))
 
+(defun day19/create-ideal-blueprint ()
+  (make-day19-bprint :id 0
+                     :costs '((2 0 0 0)
+                              (2 0 0 0)
+                              (2 5 0 0)
+                              (2 0 7 0))
+                     :ideal-times nil))
+
+(defun day19/next-ideal-geo-robot (state)
+  "Returns the time when the next geo robot will be built under ideal conditions.
+
+The point is: if the time is larger or equal than the end time
+there is no point simulating more paths."
+  (let ((ideal-blueprint (day19/create-ideal-blueprint)))
+    (car (day19/accumulate ideal-blueprint state))))
+
+(defun day19/recursive (bprint state max-time)
+  (if (or (>= (day19-state-time state) max-time)
+          (and (> (apply #+ (day19-state-robots state)) 4)
+               (>=  (day19/next-ideal-geo-robot state) max-time)))
+      ;; either we are out of time, or there is no way we make a geo robot in time
+      (let ((score (day19/state-score state)))
+        (when (> score day19/*best-result*)
+          (setq day19/*best-result* score)
+          (print day19/*best-result*)
+          (sit-for 0.01))
+        score)
+    (let ((next-moves (reverse day19/indices)))
+      (apply #'max (--map (day19/recursive bprint it max-time)
+              (--filter it    ; impossible results are not interesting
+                        (--map (day19/jump-state-to-construction bprint state it) next-moves)))))))
+
+(defvar day19/*best-result* nil)
+(defun day19/start-recursive (bprint state max-time)
+  (setq day19/*total-time* max-time)
+  (setq day19/*best-result* 0)
+  (day19/recursive bprint state max-time))
+
 (defun day19/part-2 (lines)
   (setq day19/*total-time* day19/part-2-total-time)
   (day19/compute-quality-product (-take 3 (day19/read-problem lines))))
