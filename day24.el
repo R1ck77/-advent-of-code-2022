@@ -238,12 +238,24 @@ Among all nodes with this specific, get the ones with the smallest time"
         next-node
       (error "The algorithm failed =("))))
 
-
-
 (defun day24/part-1 (lines)
   (day24/one-path-dijkstra (day24/read-problem lines)))
 
+(defun day24/forgetful-elf-dijkstra (map-data)
+  (let ((cache (day24/create-cache map-data))
+        (start-end (day24/get-extremes map-data)))
+    (let* ((end-state (day24/dijkstra cache
+                                      (day24/create-starting-state)
+                                      (cadr start-end)))
+           (back-to-start-state (day24/dijkstra cache
+                                                end-state
+                                                (car start-end)))
+           (back-to-end-state (day24/dijkstra cache
+                                              back-to-start-state
+                                              (cadr start-end))))
+      (day24-state-time back-to-end-state))))
+
 (defun day24/part-2 (lines)
-  (error "Not yet implemented"))
+  (day24/forgetful-elf-dijkstra (day24/read-problem lines)))
 
 (provide 'day24)
