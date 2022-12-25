@@ -413,10 +413,18 @@ there is no point simulating more paths."
   (let ((ideal-blueprint (day19/create-ideal-blueprint)))
     (car (day19/accumulate ideal-blueprint state))))
 
+(defun day19/best-hypotetical-score-attainable (state max-time)
+  (let ((resources (day19-state-resources state))
+        (robots (day19-state-resources state))
+        (time (day19-state-time state)))
+    (+ (elt resources day19/geo-index)
+       (* (- max-time time) (elt robots day19/geo-index))
+       (let ((dt (- max-time time)))
+         (/ (* dt (1- dt)) 2)))))
+
 (defun day19/recursive (bprint state max-time)
   (if (or (>= (day19-state-time state) max-time)
-          (and (> (apply #+ (day19-state-robots state)) 4)
-               (>=  (day19/next-ideal-geo-robot state) max-time)))
+          (<= (day19/best-hypotetical-score-attainable state max-time) day19/*best-result*))
       ;; either we are out of time, or there is no way we make a geo robot in time
       (let ((score (day19/state-score state)))
         (when (> score day19/*best-result*)
@@ -424,10 +432,25 @@ there is no point simulating more paths."
           (print day19/*best-result*)
           (sit-for 0.01))
         score)
-    (let ((next-moves (reverse day19/indices)))
-      (apply #'max (--map (day19/recursive bprint it max-time)
-              (--filter it    ; impossible results are not interesting
-                        (--map (day19/jump-state-to-construction bprint state it) next-moves)))))))
+    (let* ((robots (day19-state-robots state))
+           (next-moves (cond
+                       ;; no clay robots
+                       ((zerop (elt robots day19/clay-index)) '(1 0))
+                       ;; no obsidian robots
+                       ((zerop (elt robots day19/obs-index)) '(2 1 0))
+                       ;; Anything goes
+                       (t '(3 2 1 0)))))
+      (if (>= (elt robots day19/ore-index)
+              (apply #'max (--map (elt it day19/ore-index)
+                                  (day19-bprint-costs bprint))))
+          (setq next-moves (-remove-item day19/ore-index next-moves)))
+      (if (>= (elt robots day19/clay-index)
+              (elt (elt (day19-bprint-costs bprint) day19/obs-index) day19/clay-index))
+          (setq next-moves (-remove-item day19/clay-index next-moves)))      
+      (apply #'max (or (--map (day19/recursive bprint it max-time)
+                           (--filter it ; impossible results are not interesting
+                                     (--map (day19/jump-state-to-construction bprint state it) next-moves)))
+                       (list 0))))))
 
 (defvar day19/*best-result* nil)
 (defun day19/start-recursive (bprint state max-time)
