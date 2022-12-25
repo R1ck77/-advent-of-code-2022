@@ -131,8 +131,11 @@
                             :time (car expected-deadline))))))
 
 (defun day19/state-score (state total-time)
-  (when state
-    (elt (day19-state-resources (day19/evolve-state-resources-to-end state total-time)) day19/geo-index)))
+  (if state
+      (elt (day19-state-resources
+            (day19/evolve-state-resources-to-end state total-time))
+           day19/geo-index)
+    0))
 
 (defun day19/read-problem (lines)
   (-map #'day19/read-blueprint lines))
@@ -142,7 +145,7 @@
 
 (defun day19/best-hypotetical-score-attainable (state max-time)
   (let ((resources (day19-state-resources state))
-        (robots (day19-state-resources state))
+        (robots (day19-state-robots state))
         (time (day19-state-time state)))
     (+ (elt resources day19/geo-index)
        (* (- max-time time) (elt robots day19/geo-index))
