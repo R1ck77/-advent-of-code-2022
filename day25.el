@@ -6,7 +6,19 @@
 (defconst problem (advent/read-problem-lines 25 :problem))
 
 (defun day25/snafu-to-decimal (snafu)
-  1)
+  (car
+   (-reduce-from (lambda (acc&exp digit)
+                   (let ((value (case digit
+                                  (?2 2)
+                                  (?1 1)
+                                  (?0 0)
+                                  (?- -1)
+                                  (?= -2)
+                                  (t (error "Unexpected digit"))))
+                         (mult (expt 5 (cdr acc&exp))))
+                     (cons (+ (car acc&exp) (* value mult)) (1+ (cdr acc&exp)))))
+                 '(0 . 0 )
+                 (reverse (append snafu nil)))))
 
 (defun day25/decimal-to-snafu (decimal)
   "12")
